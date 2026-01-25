@@ -54,6 +54,7 @@ import { ContentItem, Screen, ScreenGroup, Branch } from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { FileUploadZone } from '@/components/content/FileUploadZone';
+import { AssignContentDialog } from '@/components/content/AssignContentDialog';
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return bytes + ' B';
@@ -81,7 +82,6 @@ export default function Content() {
   const [newContentDuration, setNewContentDuration] = useState('10');
   
   const [assignTargetType, setAssignTargetType] = useState<'screen' | 'group' | 'branch'>('screen');
-  const [assignTargetId, setAssignTargetId] = useState('');
   
   const { toast } = useToast();
 
@@ -203,36 +203,6 @@ export default function Content() {
       toast({
         title: 'Error',
         description: 'Failed to create content.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleAssignContent = async () => {
-    if (!selectedContent || !assignTargetId) {
-      toast({
-        title: 'Error',
-        description: 'Please select a target.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      await assignContent(selectedContent.id, assignTargetType, assignTargetId);
-      setIsAssignOpen(false);
-      setAssignTargetId('');
-      toast({
-        title: 'Assigned',
-        description: 'Content assigned successfully.',
-      });
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to assign content.',
         variant: 'destructive',
       });
     } finally {
@@ -446,53 +416,15 @@ export default function Content() {
         )}
 
         {/* Assign Dialog */}
-        <Dialog open={isAssignOpen} onOpenChange={setIsAssignOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Assign Content</DialogTitle>
-              <DialogDescription>
-                Assign "{selectedContent?.name}" to screens, groups, or branches.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label>Assign To</Label>
-                <Select value={assignTargetType} onValueChange={(v) => {
-                  setAssignTargetType(v as 'screen' | 'group' | 'branch');
-                  setAssignTargetId('');
-                }}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select target type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="screen">Single Screen</SelectItem>
-                    <SelectItem value="group">Screen Group</SelectItem>
-                    <SelectItem value="branch">All Branch Screens</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Select Target</Label>
-                <Select value={assignTargetId} onValueChange={setAssignTargetId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {getTargetOptions().map(option => (
-                      <SelectItem key={option.id} value={option.id}>
-                        {option.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <Button className="w-full" onClick={handleAssignContent} disabled={isSaving}>
-              {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Assign Content
-            </Button>
-          </DialogContent>
-        </Dialog>
+        <AssignContentDialog
+          open={isAssignOpen}
+          onOpenChange={setIsAssignOpen}
+          content={selectedContent}
+          screens={screens}
+          groups={groups}
+          branches={branches}
+          onAssignComplete={() => fetchData()}
+        />
       </div>
     </DashboardLayout>
   );
