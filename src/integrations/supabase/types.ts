@@ -14,7 +14,302 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      branches: {
+        Row: {
+          created_at: string
+          id: string
+          location: string | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          location?: string | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          location?: string | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      content: {
+        Row: {
+          created_at: string
+          duration: number
+          file_size: number | null
+          id: string
+          name: string
+          thumbnail_url: string | null
+          type: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          duration?: number
+          file_size?: number | null
+          id?: string
+          name: string
+          thumbnail_url?: string | null
+          type: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          duration?: number
+          file_size?: number | null
+          id?: string
+          name?: string
+          thumbnail_url?: string | null
+          type?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
+      content_assignments: {
+        Row: {
+          content_id: string
+          created_at: string
+          display_order: number | null
+          id: string
+          target_id: string
+          target_type: string
+        }
+        Insert: {
+          content_id: string
+          created_at?: string
+          display_order?: number | null
+          id?: string
+          target_id: string
+          target_type: string
+        }
+        Update: {
+          content_id?: string
+          created_at?: string
+          display_order?: number | null
+          id?: string
+          target_id?: string
+          target_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_assignments_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "content"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      schedules: {
+        Row: {
+          content_id: string
+          created_at: string
+          end_date: string
+          end_time: string
+          id: string
+          is_active: boolean
+          name: string
+          priority: number
+          start_date: string
+          start_time: string
+          target_id: string
+          target_type: string
+          updated_at: string
+        }
+        Insert: {
+          content_id: string
+          created_at?: string
+          end_date: string
+          end_time?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          priority?: number
+          start_date: string
+          start_time?: string
+          target_id: string
+          target_type: string
+          updated_at?: string
+        }
+        Update: {
+          content_id?: string
+          created_at?: string
+          end_date?: string
+          end_time?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          priority?: number
+          start_date?: string
+          start_time?: string
+          target_id?: string
+          target_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedules_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "content"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      screen_group_assignments: {
+        Row: {
+          created_at: string
+          group_id: string
+          id: string
+          screen_id: string
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          id?: string
+          screen_id: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          id?: string
+          screen_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "screen_group_assignments_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "screen_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screen_group_assignments_screen_id_fkey"
+            columns: ["screen_id"]
+            isOneToOne: false
+            referencedRelation: "screens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      screen_groups: {
+        Row: {
+          branch_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          branch_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          branch_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "screen_groups_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      screens: {
+        Row: {
+          branch_id: string
+          created_at: string
+          id: string
+          last_heartbeat: string | null
+          name: string
+          orientation: string
+          resolution: string
+          slug: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          branch_id: string
+          created_at?: string
+          id?: string
+          last_heartbeat?: string | null
+          name: string
+          orientation?: string
+          resolution?: string
+          slug: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          branch_id?: string
+          created_at?: string
+          id?: string
+          last_heartbeat?: string | null
+          name?: string
+          orientation?: string
+          resolution?: string
+          slug?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "screens_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
