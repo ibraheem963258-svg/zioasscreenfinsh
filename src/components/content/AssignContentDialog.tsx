@@ -10,9 +10,11 @@ import {
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { ContentItem, Screen, ScreenGroup, Branch } from '@/lib/types';
-import { assignContent } from '@/lib/api';
+import { createPlaylist } from '@/lib/api/playlists';
 import { useToast } from '@/hooks/use-toast';
 
 type AssignMode = 'all' | 'branch' | 'group' | 'screen';
@@ -39,6 +41,7 @@ export function AssignContentDialog({
   const [mode, setMode] = useState<AssignMode>('screen');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [playlistName, setPlaylistName] = useState('');
   const { toast } = useToast();
 
   const modes = [
@@ -86,34 +89,39 @@ export function AssignContentDialog({
 
     setIsSaving(true);
     try {
+      const name = playlistName.trim() || `Playlist - ${content.name}`;
+      const items = [{ contentId: content.id, duration: content.duration || 10, order: 0 }];
+
       if (mode === 'all') {
-        // Assign to all branches
+        // Create playlist for each branch
         for (const branch of branches) {
-          await assignContent(content.id, 'branch', branch.id);
+          await createPlaylist(name, 'branch', branch.id, items, true);
         }
         toast({
-          title: 'Assigned!',
-          description: `Content assigned to all ${branches.length} branches.`,
+          title: 'Playlist Created!',
+          description: `Content will be displayed on all ${branches.length} branches.`,
         });
       } else {
-        // Assign to selected items
+        // Create playlist for each selected target
         const targetType = mode === 'branch' ? 'branch' : mode === 'group' ? 'group' : 'screen';
         for (const id of selectedIds) {
-          await assignContent(content.id, targetType, id);
+          await createPlaylist(name, targetType, id, items, true);
         }
         toast({
-          title: 'Assigned!',
-          description: `Content assigned to ${selectedIds.length} ${mode}${selectedIds.length > 1 ? 's' : ''}.`,
+          title: 'Playlist Created!',
+          description: `${selectedIds.length} ${mode}${selectedIds.length > 1 ? 's' : ''} will display the content.`,
         });
       }
       
       setSelectedIds([]);
+      setPlaylistName('');
       onAssignComplete();
       onOpenChange(false);
     } catch (error) {
+      console.error('Error creating playlist:', error);
       toast({
         title: 'Error',
-        description: 'Failed to assign content.',
+        description: 'Failed to create playlist.',
         variant: 'destructive',
       });
     } finally {
@@ -149,6 +157,17 @@ export function AssignContentDialog({
               {content?.type} • {content?.duration}s
             </p>
           </div>
+        </div>
+
+        {/* Playlist Name */}
+        <div className="space-y-2">
+          <Label htmlFor="playlist-name">Playlist Name (Optional)</Label>
+          <Input
+            id="playlist-name"
+            placeholder={`Playlist - ${content?.name || 'Content'}`}
+            value={playlistName}
+            onChange={(e) => setPlaylistName(e.target.value)}
+          />
         </div>
 
         {/* Mode Selection */}
@@ -213,6 +232,8 @@ export function AssignContentDialog({
                         "text-xs px-2 py-0.5 rounded-full",
                         String(item.status) === 'online' 
                           ? "bg-success/20 text-success" 
+                          : String(item.status) === 'idle'
+                          ? "bg-warning/20 text-warning"
                           : "bg-destructive/20 text-destructive"
                       )}>
                         {String(item.status)}
@@ -263,12 +284,12 @@ export function AssignContentDialog({
             {isSaving ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Assigning...
+                Creating...
               </>
             ) : (
               <>
                 <Check className="h-4 w-4 mr-2" />
-                Assign
+                Create & Activate
               </>
             )}
           </Button>
