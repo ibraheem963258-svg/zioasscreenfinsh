@@ -8,7 +8,6 @@ import {
   Filter,
   MoreVertical,
   Eye,
-  Edit2,
   Trash2,
   ExternalLink,
   Wifi,
@@ -17,7 +16,11 @@ import {
   Copy,
   Link,
   Play,
-  Pause
+  Pause,
+  CirclePause,
+  ListMusic,
+  Settings,
+  Clock
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
@@ -46,6 +49,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -63,9 +74,12 @@ import {
   deleteScreenGroup,
   toggleScreenPlaying
 } from '@/lib/api';
-import { Screen, Branch, ScreenGroup } from '@/lib/types';
+import { getPlaylistsForTarget } from '@/lib/api/playlists';
+import { Screen, Branch, ScreenGroup, Playlist } from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { PlaylistManager } from '@/components/playlists/PlaylistManager';
+import { DisplaySettingsDialog } from '@/components/settings/DisplaySettingsDialog';
 
 export default function Screens() {
   const [screens, setScreens] = useState<Screen[]>([]);
@@ -79,6 +93,11 @@ export default function Screens() {
   const [isAddGroupOpen, setIsAddGroupOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Playlist management
+  const [selectedScreen, setSelectedScreen] = useState<Screen | null>(null);
+  const [screenPlaylists, setScreenPlaylists] = useState<Playlist[]>([]);
+  const [isPlaylistSheetOpen, setIsPlaylistSheetOpen] = useState(false);
   
   // Form states
   const [newScreenName, setNewScreenName] = useState('');
@@ -116,9 +135,11 @@ export default function Screens() {
               s.id === updatedScreen.id 
                 ? { 
                     ...s, 
-                    status: updatedScreen.status as 'online' | 'offline',
+                    status: updatedScreen.status as 'online' | 'offline' | 'idle',
                     isPlaying: updatedScreen.is_playing ?? true,
-                    lastUpdated: new Date(updatedScreen.updated_at)
+                    lastHeartbeat: updatedScreen.last_heartbeat ? new Date(updatedScreen.last_heartbeat) : null,
+                    lastUpdated: new Date(updatedScreen.updated_at),
+                    currentPlaylistId: updatedScreen.current_playlist_id,
                   }
                 : s
             ));
@@ -152,6 +173,21 @@ export default function Screens() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const fetchScreenPlaylists = async (screen: Screen) => {
+    try {
+      const playlists = await getPlaylistsForTarget('screen', screen.id);
+      setScreenPlaylists(playlists);
+    } catch (error) {
+      console.error('Error fetching playlists:', error);
+    }
+  };
+
+  const handleOpenPlaylistSheet = async (screen: Screen) => {
+    setSelectedScreen(screen);
+    await fetchScreenPlaylists(screen);
+    setIsPlaylistSheetOpen(true);
   };
 
   const getBranchName = (branchId: string) => {
@@ -339,6 +375,36 @@ export default function Screens() {
     setNewScreenBranch('');
     setNewScreenOrientation('landscape');
     setNewScreenResolution('1920x1080');
+  };
+
+  const getStatusConfig = (status: Screen['status']) => {
+    switch (status) {
+      case 'online':
+        return {
+          bgColor: 'bg-success/20',
+          textColor: 'text-success',
+          icon: Wifi,
+          label: 'Online',
+          badgeClass: 'status-online',
+        };
+      case 'idle':
+        return {
+          bgColor: 'bg-warning/20',
+          textColor: 'text-warning',
+          icon: CirclePause,
+          label: 'Idle',
+          badgeClass: 'status-idle',
+        };
+      case 'offline':
+      default:
+        return {
+          bgColor: 'bg-destructive/20',
+          textColor: 'text-destructive',
+          icon: WifiOff,
+          label: 'Offline',
+          badgeClass: 'status-offline',
+        };
+    }
   };
 
   if (isLoading) {
@@ -596,6 +662,7 @@ export default function Screens() {
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="online">Online</SelectItem>
+                  <SelectItem value="idle">Idle</SelectItem>
                   <SelectItem value="offline">Offline</SelectItem>
                 </SelectContent>
               </Select>
@@ -612,134 +679,159 @@ export default function Screens() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredScreens.map((screen) => (
-                  <div key={screen.id} className="stat-card group">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className={cn(
-                          "flex h-10 w-10 items-center justify-center rounded-lg",
-                          screen.status === 'online' ? 'bg-success/20' : 'bg-destructive/20'
-                        )}>
-                          <Monitor className={cn(
-                            "h-5 w-5",
-                            screen.status === 'online' ? 'text-success' : 'text-destructive'
-                          )} />
+                {filteredScreens.map((screen) => {
+                  const statusConfig = getStatusConfig(screen.status);
+                  const StatusIcon = statusConfig.icon;
+
+                  return (
+                    <div key={screen.id} className="stat-card group">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className={cn(
+                            "flex h-10 w-10 items-center justify-center rounded-lg",
+                            statusConfig.bgColor
+                          )}>
+                            <Monitor className={cn("h-5 w-5", statusConfig.textColor)} />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-foreground">{screen.name}</h3>
+                            <p className="text-sm text-muted-foreground">{getBranchName(screen.branchId)}</p>
+                          </div>
                         </div>
-                        <div>
-                          <h3 className="font-semibold text-foreground">{screen.name}</h3>
-                          <p className="text-sm text-muted-foreground">{getBranchName(screen.branchId)}</p>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleOpenPlaylistSheet(screen)}>
+                              <ListMusic className="h-4 w-4 mr-2" />
+                              Manage Playlists
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleCopyUrl(screen)}>
+                              <Copy className="h-4 w-4 mr-2" />
+                              Copy Display URL
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handlePreview(screen)}>
+                              <Eye className="h-4 w-4 mr-2" />
+                              Preview
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handlePreview(screen)}>
+                              <ExternalLink className="h-4 w-4 mr-2" />
+                              Open Display URL
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              className="text-destructive"
+                              onClick={() => handleDeleteScreen(screen.id)}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <StatusIcon className={cn("h-4 w-4", statusConfig.textColor)} />
+                          <Badge variant="outline" className={statusConfig.badgeClass}>
+                            {statusConfig.label}
+                          </Badge>
+                          {screen.status === 'online' && (
+                            <Badge 
+                              variant="outline" 
+                              className={cn(
+                                "gap-1",
+                                screen.isPlaying 
+                                  ? 'bg-primary/10 text-primary border-primary/30' 
+                                  : 'bg-muted text-muted-foreground'
+                              )}
+                            >
+                              {screen.isPlaying ? (
+                                <><Play className="h-3 w-3" /> Playing</>
+                              ) : (
+                                <><Pause className="h-3 w-3" /> Paused</>
+                              )}
+                            </Badge>
+                          )}
+                          <Badge variant="secondary">
+                            {screen.orientation === 'landscape' ? 'Landscape' : 'Portrait'}
+                          </Badge>
                         </div>
-                      </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleCopyUrl(screen)}>
-                            <Copy className="h-4 w-4 mr-2" />
-                            Copy Display URL
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handlePreview(screen)}>
-                            <Eye className="h-4 w-4 mr-2" />
-                            Preview
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handlePreview(screen)}>
-                            <ExternalLink className="h-4 w-4 mr-2" />
-                            Open Display URL
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem 
-                            className="text-destructive"
-                            onClick={() => handleDeleteScreen(screen.id)}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
 
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {screen.status === 'online' ? (
-                          <Wifi className="h-4 w-4 text-success" />
-                        ) : (
-                          <WifiOff className="h-4 w-4 text-destructive" />
-                        )}
-                        <Badge variant={screen.status === 'online' ? 'default' : 'destructive'} className={cn(
-                          screen.status === 'online' ? 'bg-success/20 text-success border-success/30' : ''
-                        )}>
-                          {screen.status === 'online' ? 'Online' : 'Offline'}
-                        </Badge>
-                        {screen.status === 'online' && (
-                          <Badge 
-                            variant="outline" 
-                            className={cn(
-                              "gap-1",
-                              screen.isPlaying 
-                                ? 'bg-primary/10 text-primary border-primary/30' 
-                                : 'bg-muted text-muted-foreground'
-                            )}
-                          >
-                            {screen.isPlaying ? (
-                              <><Play className="h-3 w-3" /> Playing</>
-                            ) : (
-                              <><Pause className="h-3 w-3" /> Paused</>
-                            )}
-                          </Badge>
-                        )}
-                        <Badge variant="secondary">
-                          {screen.orientation === 'landscape' ? 'Landscape' : 'Portrait'}
-                        </Badge>
-                      </div>
+                        <div className="flex flex-wrap gap-1">
+                          {getGroupNames(screen.groupIds).map((name, idx) => (
+                            <Badge key={idx} variant="outline" className="text-xs">
+                              {name}
+                            </Badge>
+                          ))}
+                        </div>
 
-                      <div className="flex flex-wrap gap-1">
-                        {getGroupNames(screen.groupIds).map((name, idx) => (
-                          <Badge key={idx} variant="outline" className="text-xs">
-                            {name}
-                          </Badge>
-                        ))}
-                      </div>
-
-                      <div className="pt-3 border-t border-border">
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="text-muted-foreground">Content Playback</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-muted-foreground">
-                              {screen.isPlaying ? 'On' : 'Off'}
-                            </span>
-                            <Switch 
-                              checked={screen.isPlaying} 
-                              onCheckedChange={() => handleTogglePlaying(screen)}
+                        <div className="pt-3 border-t border-border space-y-2">
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="text-muted-foreground">Content Playback</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground">
+                                {screen.isPlaying ? 'On' : 'Off'}
+                              </span>
+                              <Switch 
+                                checked={screen.isPlaying} 
+                                onCheckedChange={() => handleTogglePlaying(screen)}
+                              />
+                            </div>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Resolution</span>
+                            <span className="text-foreground">{screen.resolution}</span>
+                          </div>
+                          {screen.lastHeartbeat && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground flex items-center gap-1">
+                                <Clock className="h-3 w-3" /> Last Ping
+                              </span>
+                              <span className="text-foreground">
+                                {formatDistanceToNow(screen.lastHeartbeat, { addSuffix: true })}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Display URL</span>
+                            <button
+                              onClick={() => handleCopyUrl(screen)}
+                              className="flex items-center gap-1 text-primary text-xs hover:underline cursor-pointer"
+                            >
+                              <Link className="h-3 w-3" />
+                              Copy URL
+                            </button>
+                          </div>
+                          <div className="flex gap-2 pt-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1"
+                              onClick={() => handleOpenPlaylistSheet(screen)}
+                            >
+                              <ListMusic className="h-4 w-4 mr-1" />
+                              Playlists
+                            </Button>
+                            <DisplaySettingsDialog
+                              targetType="screen"
+                              targetId={screen.id}
+                              targetName={screen.name}
+                              trigger={
+                                <Button variant="outline" size="sm">
+                                  <Settings className="h-4 w-4" />
+                                </Button>
+                              }
                             />
                           </div>
                         </div>
-                        <div className="flex justify-between text-sm mt-2">
-                          <span className="text-muted-foreground">Resolution</span>
-                          <span className="text-foreground">{screen.resolution}</span>
-                        </div>
-                        <div className="flex justify-between text-sm mt-1">
-                          <span className="text-muted-foreground">Last Updated</span>
-                          <span className="text-foreground">
-                            {formatDistanceToNow(screen.lastUpdated, { addSuffix: true })}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-sm mt-1">
-                          <span className="text-muted-foreground">Display URL</span>
-                          <button
-                            onClick={() => handleCopyUrl(screen)}
-                            className="flex items-center gap-1 text-primary text-xs hover:underline cursor-pointer"
-                          >
-                            <Link className="h-3 w-3" />
-                            Copy URL
-                          </button>
-                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </TabsContent>
@@ -759,6 +851,7 @@ export default function Screens() {
                   const branchScreens = screens.filter(s => s.branchId === branch.id);
                   const branchGroups = groups.filter(g => g.branchId === branch.id);
                   const onlineCount = branchScreens.filter(s => s.status === 'online').length;
+                  const idleCount = branchScreens.filter(s => s.status === 'idle').length;
                   
                   return (
                     <div key={branch.id} className="stat-card">
@@ -790,19 +883,30 @@ export default function Screens() {
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
-                      <div className="grid grid-cols-3 gap-4 pt-3 border-t border-border">
+                      <div className="grid grid-cols-4 gap-2 pt-3 border-t border-border">
                         <div className="text-center">
-                          <p className="text-2xl font-bold text-foreground">{branchScreens.length}</p>
+                          <p className="text-xl font-bold text-foreground">{branchScreens.length}</p>
                           <p className="text-xs text-muted-foreground">Screens</p>
                         </div>
                         <div className="text-center">
-                          <p className="text-2xl font-bold text-success">{onlineCount}</p>
+                          <p className="text-xl font-bold text-success">{onlineCount}</p>
                           <p className="text-xs text-muted-foreground">Online</p>
                         </div>
                         <div className="text-center">
-                          <p className="text-2xl font-bold text-foreground">{branchGroups.length}</p>
+                          <p className="text-xl font-bold text-warning">{idleCount}</p>
+                          <p className="text-xs text-muted-foreground">Idle</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xl font-bold text-foreground">{branchGroups.length}</p>
                           <p className="text-xs text-muted-foreground">Groups</p>
                         </div>
+                      </div>
+                      <div className="flex gap-2 mt-4">
+                        <DisplaySettingsDialog
+                          targetType="branch"
+                          targetId={branch.id}
+                          targetName={branch.name}
+                        />
                       </div>
                     </div>
                   );
@@ -856,14 +960,19 @@ export default function Screens() {
                         </DropdownMenu>
                       </div>
                       <div className="pt-3 border-t border-border">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">Branch</span>
-                          <Badge variant="secondary">{getBranchName(group.branchId)}</Badge>
+                        <div className="flex justify-between mb-3">
+                          <span className="text-muted-foreground text-sm">Screens in group</span>
+                          <span className="font-semibold">{groupScreens.length}</span>
                         </div>
-                        <div className="flex justify-between items-center mt-2">
-                          <span className="text-sm text-muted-foreground">Screens</span>
-                          <span className="text-lg font-bold text-foreground">{groupScreens.length}</span>
+                        <div className="flex justify-between mb-3">
+                          <span className="text-muted-foreground text-sm">Branch</span>
+                          <span className="text-sm">{getBranchName(group.branchId)}</span>
                         </div>
+                        <DisplaySettingsDialog
+                          targetType="group"
+                          targetId={group.id}
+                          targetName={group.name}
+                        />
                       </div>
                     </div>
                   );
@@ -873,6 +982,29 @@ export default function Screens() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Playlist Management Sheet */}
+      <Sheet open={isPlaylistSheetOpen} onOpenChange={setIsPlaylistSheetOpen}>
+        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Playlist Management</SheetTitle>
+            <SheetDescription>
+              {selectedScreen ? `Managing playlists for "${selectedScreen.name}"` : ''}
+            </SheetDescription>
+          </SheetHeader>
+          {selectedScreen && (
+            <div className="mt-6">
+              <PlaylistManager
+                targetType="screen"
+                targetId={selectedScreen.id}
+                targetName={selectedScreen.name}
+                playlists={screenPlaylists}
+                onPlaylistsChange={() => fetchScreenPlaylists(selectedScreen)}
+              />
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </DashboardLayout>
   );
 }

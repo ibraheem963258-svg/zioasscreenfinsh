@@ -1,77 +1,134 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { getScreenContent, updateScreenStatus } from '@/lib/api';
+import { updateScreenStatus } from '@/lib/api';
+import { getActivePlaylistForScreen, getEffectiveDisplaySettings } from '@/lib/api/index';
 import { supabase } from '@/integrations/supabase/client';
-import { Screen, ContentItem } from '@/lib/types';
+import { Screen, ContentItem, Playlist, DisplaySettings } from '@/lib/types';
+import { ContentRenderer } from '@/components/display/ContentRenderer';
+import { LoadingScreen } from '@/components/display/LoadingScreen';
+import { ErrorScreen } from '@/components/display/ErrorScreen';
+import { IdleScreen } from '@/components/display/IdleScreen';
+import { PausedScreen } from '@/components/display/PausedScreen';
 
 export default function Display() {
   const { slug } = useParams<{ slug: string }>();
   const [screen, setScreen] = useState<Screen | null>(null);
+  const [playlist, setPlaylist] = useState<Playlist | null>(null);
   const [content, setContent] = useState<ContentItem[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isTransitioning, setIsTransitioning] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [settings, setSettings] = useState<DisplaySettings | null>(null);
   const [isPlaying, setIsPlaying] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Fetch screen and content
-  useEffect(() => {
-    const fetchContent = async () => {
-      if (!slug) return;
-      
-      try {
-        const { screen: screenData, content: contentData } = await getScreenContent(slug);
-        setScreen(screenData);
-        setContent(contentData);
-        setIsPlaying(screenData?.isPlaying ?? true);
-        
-        // Update screen status to online
-        if (screenData) {
-          await updateScreenStatus(screenData.id, 'online');
-        }
-      } catch (err) {
-        console.error('Error fetching content:', err);
-        setError('Failed to load content');
-      } finally {
+  // Fetch screen and content data
+  const fetchData = useCallback(async () => {
+    if (!slug) return;
+
+    try {
+      // Get screen by slug
+      const { data: screenData, error: screenError } = await supabase
+        .from('screens')
+        .select('*')
+        .eq('slug', slug)
+        .maybeSingle();
+
+      if (screenError) throw screenError;
+      if (!screenData) {
+        setScreen(null);
+        setError('Screen not found');
         setIsLoading(false);
+        return;
       }
-    };
 
-    fetchContent();
+      // Get group assignments
+      const { data: groupAssignments } = await supabase
+        .from('screen_group_assignments')
+        .select('group_id')
+        .eq('screen_id', screenData.id);
 
-    // Set up heartbeat to keep screen status online
-    const heartbeatInterval = setInterval(async () => {
-      if (screen) {
-        try {
-          await updateScreenStatus(screen.id, 'online');
-        } catch (err) {
-          console.error('Heartbeat failed:', err);
-        }
+      const groupIds = groupAssignments?.map(a => a.group_id) || [];
+
+      const screenObj: Screen = {
+        id: screenData.id,
+        name: screenData.name,
+        slug: screenData.slug,
+        branchId: screenData.branch_id,
+        groupIds,
+        orientation: screenData.orientation as 'landscape' | 'portrait',
+        resolution: screenData.resolution,
+        status: screenData.status as 'online' | 'offline' | 'idle',
+        isPlaying: screenData.is_playing ?? true,
+        lastHeartbeat: screenData.last_heartbeat ? new Date(screenData.last_heartbeat) : null,
+        lastUpdated: new Date(screenData.updated_at),
+        contentIds: [],
+        currentPlaylistId: screenData.current_playlist_id,
+      };
+
+      setScreen(screenObj);
+      setIsPlaying(screenObj.isPlaying);
+
+      // Update screen status to online
+      await updateScreenStatus(screenData.id, 'online');
+
+      // Get active playlist and content
+      const { playlist: activePlaylist, content: playlistContent } = await getActivePlaylistForScreen(screenData.id);
+      setPlaylist(activePlaylist);
+      setContent(playlistContent);
+
+      // Update screen's current_playlist_id if there's an active playlist
+      if (activePlaylist) {
+        await supabase
+          .from('screens')
+          .update({ current_playlist_id: activePlaylist.id })
+          .eq('id', screenData.id);
       }
-    }, 30000); // Every 30 seconds
 
-    return () => clearInterval(heartbeatInterval);
+      // Get effective display settings
+      const effectiveSettings = await getEffectiveDisplaySettings(
+        screenData.id,
+        groupIds,
+        screenData.branch_id
+      );
+      setSettings(effectiveSettings);
+
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError('Failed to load content');
+    } finally {
+      setIsLoading(false);
+    }
   }, [slug]);
 
-  // Subscribe to realtime updates for screen status and content changes
+  // Initial fetch
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Heartbeat mechanism
   useEffect(() => {
     if (!screen?.id) return;
 
-    const refetchContent = async () => {
-      if (!slug) return;
+    const heartbeat = async () => {
       try {
-        const { screen: screenData, content: contentData } = await getScreenContent(slug);
-        setScreen(screenData);
-        setContent(contentData);
-        setIsPlaying(screenData?.isPlaying ?? true);
-        setCurrentIndex(0); // Reset to first slide when content changes
+        await updateScreenStatus(screen.id, 'online');
       } catch (err) {
-        console.error('Error refetching content:', err);
+        console.error('Heartbeat failed:', err);
       }
     };
 
+    // Send heartbeat every 30 seconds
+    const interval = setInterval(heartbeat, 30000);
+
+    return () => clearInterval(interval);
+  }, [screen?.id]);
+
+  // Subscribe to realtime updates
+  useEffect(() => {
+    if (!screen?.id) return;
+
     const channel = supabase
-      .channel(`screen-realtime-${screen.id}`)
+      .channel(`display-${screen.id}`)
+      // Screen updates (play/pause, status)
       .on(
         'postgres_changes',
         {
@@ -81,46 +138,48 @@ export default function Display() {
           filter: `id=eq.${screen.id}`,
         },
         (payload) => {
-          const updatedScreen = payload.new as any;
-          setIsPlaying(updatedScreen.is_playing ?? true);
+          const updated = payload.new as any;
+          setIsPlaying(updated.is_playing ?? true);
         }
       )
+      // Playlist changes
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
-          table: 'content_assignments',
+          table: 'playlists',
         },
         () => {
-          // Refetch content when new assignments are added
-          refetchContent();
+          // Refetch when playlists change
+          fetchData();
         }
       )
+      // Playlist items changes
       .on(
         'postgres_changes',
         {
-          event: 'DELETE',
+          event: '*',
           schema: 'public',
-          table: 'content_assignments',
+          table: 'playlist_items',
         },
         () => {
-          // Refetch content when assignments are deleted
-          refetchContent();
+          fetchData();
         }
       )
+      // Display settings changes
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          event: '*',
           schema: 'public',
-          table: 'content_assignments',
+          table: 'display_settings',
         },
         () => {
-          // Refetch content when assignments are updated
-          refetchContent();
+          fetchData();
         }
       )
+      // Content changes
       .on(
         'postgres_changes',
         {
@@ -129,8 +188,7 @@ export default function Display() {
           table: 'content',
         },
         () => {
-          // Refetch content when content is updated
-          refetchContent();
+          fetchData();
         }
       )
       .subscribe();
@@ -138,37 +196,7 @@ export default function Display() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [screen?.id, slug]);
-
-  const nextSlide = useCallback(() => {
-    if (content.length <= 1) return;
-    
-    setIsTransitioning(true);
-    setTimeout(() => {
-      setCurrentIndex(prev => (prev + 1) % content.length);
-      setIsTransitioning(false);
-    }, 1000);
-  }, [content.length]);
-
-  // Auto-advance slides (only when playing)
-  useEffect(() => {
-    if (content.length === 0 || !isPlaying) return;
-    
-    const currentContent = content[currentIndex];
-    const duration = (currentContent?.duration || 10) * 1000;
-    
-    const timer = setTimeout(nextSlide, duration);
-    return () => clearTimeout(timer);
-  }, [currentIndex, content, nextSlide, isPlaying]);
-
-  // Auto-refresh every 5 minutes to get latest content
-  useEffect(() => {
-    const refreshInterval = setInterval(() => {
-      window.location.reload();
-    }, 5 * 60 * 1000);
-    
-    return () => clearInterval(refreshInterval);
-  }, []);
+  }, [screen?.id, fetchData]);
 
   // Enter fullscreen on load
   useEffect(() => {
@@ -186,114 +214,62 @@ export default function Display() {
     return () => clearTimeout(timer);
   }, []);
 
+  // Auto-refresh every 5 minutes for stability
+  useEffect(() => {
+    const refreshInterval = setInterval(() => {
+      window.location.reload();
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(refreshInterval);
+  }, []);
+
   if (isLoading) {
-    return (
-      <div className="display-fullscreen flex items-center justify-center bg-black">
-        <div className="text-center text-white">
-          <div className="w-16 h-16 mx-auto mb-4 border-4 border-white/20 border-t-white rounded-full animate-spin" />
-          <p className="text-xl">Loading...</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="Loading content..." />;
   }
 
   if (!screen) {
     return (
-      <div className="display-fullscreen flex items-center justify-center bg-gradient-to-br from-gray-900 to-black">
-        <div className="text-center text-white">
-          <h1 className="text-4xl font-bold mb-4">Screen Not Found</h1>
-          <p className="text-xl opacity-80">No screen found with slug: {slug}</p>
-        </div>
-      </div>
+      <ErrorScreen
+        title="Screen Not Found"
+        message={`No screen found with slug: ${slug}`}
+      />
     );
   }
 
-  if (content.length === 0) {
+  if (error && !content.length) {
     return (
-      <div className="display-fullscreen flex items-center justify-center bg-gradient-to-br from-gray-900 to-black">
-        <div className="text-center text-white">
-          <div className="w-24 h-24 mx-auto mb-8 rounded-full bg-white/10 flex items-center justify-center">
-            <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <h1 className="text-3xl font-bold mb-2">{screen.name}</h1>
-          <p className="text-lg opacity-60">No content assigned to this screen</p>
-        </div>
-      </div>
+      <ErrorScreen
+        title="Error"
+        message={error}
+        showRetry
+        onRetry={() => {
+          setError(null);
+          setIsLoading(true);
+          fetchData();
+        }}
+      />
     );
   }
 
-  // Show paused state
   if (!isPlaying) {
-    return (
-      <div className="display-fullscreen flex items-center justify-center bg-gradient-to-br from-gray-900 to-black">
-        <div className="text-center text-white">
-          <div className="w-24 h-24 mx-auto mb-8 rounded-full bg-white/10 flex items-center justify-center">
-            <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <h1 className="text-3xl font-bold mb-2">{screen.name}</h1>
-          <p className="text-lg opacity-60">Content playback is paused</p>
-        </div>
-      </div>
-    );
+    return <PausedScreen screenName={screen.name} />;
   }
 
-  const currentContent = content[currentIndex];
+  if (!playlist || content.length === 0) {
+    return <IdleScreen screenName={screen.name} />;
+  }
+
+  if (!settings) {
+    return <LoadingScreen message="Loading settings..." />;
+  }
 
   return (
     <div className="display-fullscreen">
-      {/* Content */}
-      <div 
-        className={`absolute inset-0 content-transition ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}
-      >
-        {currentContent.type === 'image' ? (
-          <img
-            src={currentContent.url}
-            alt={currentContent.name}
-            className="w-full h-full object-cover"
-            onError={() => setError('Failed to load image')}
-          />
-        ) : (
-          <video
-            src={currentContent.url}
-            className="w-full h-full object-cover"
-            autoPlay
-            muted
-            loop
-            playsInline
-            onError={() => setError('Failed to load video')}
-          />
-        )}
-      </div>
-
-      {/* Progress indicators */}
-      {content.length > 1 && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-          {content.map((_, idx) => (
-            <div
-              key={idx}
-              className={`h-1 rounded-full transition-all duration-300 ${
-                idx === currentIndex 
-                  ? 'w-8 bg-white' 
-                  : 'w-2 bg-white/40'
-              }`}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Error overlay */}
-      {error && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/80">
-          <div className="text-center text-white">
-            <p className="text-xl">{error}</p>
-            <p className="text-sm opacity-60 mt-2">Retrying...</p>
-          </div>
-        </div>
-      )}
+      <ContentRenderer
+        content={content}
+        settings={settings}
+        isPlaying={isPlaying}
+      />
     </div>
   );
 }

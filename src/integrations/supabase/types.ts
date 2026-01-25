@@ -109,6 +109,117 @@ export type Database = {
           },
         ]
       }
+      display_settings: {
+        Row: {
+          content_scaling: string
+          created_at: string
+          id: string
+          playback_order: string
+          slide_duration: number
+          target_id: string
+          target_type: string
+          transition_duration: number
+          transition_type: string
+          updated_at: string
+        }
+        Insert: {
+          content_scaling?: string
+          created_at?: string
+          id?: string
+          playback_order?: string
+          slide_duration?: number
+          target_id: string
+          target_type: string
+          transition_duration?: number
+          transition_type?: string
+          updated_at?: string
+        }
+        Update: {
+          content_scaling?: string
+          created_at?: string
+          id?: string
+          playback_order?: string
+          slide_duration?: number
+          target_id?: string
+          target_type?: string
+          transition_duration?: number
+          transition_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      playlist_items: {
+        Row: {
+          content_id: string
+          created_at: string
+          display_order: number
+          duration: number
+          id: string
+          playlist_id: string
+        }
+        Insert: {
+          content_id: string
+          created_at?: string
+          display_order?: number
+          duration?: number
+          id?: string
+          playlist_id: string
+        }
+        Update: {
+          content_id?: string
+          created_at?: string
+          display_order?: number
+          duration?: number
+          id?: string
+          playlist_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "playlist_items_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "content"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "playlist_items_playlist_id_fkey"
+            columns: ["playlist_id"]
+            isOneToOne: false
+            referencedRelation: "playlists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      playlists: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          target_id: string
+          target_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          target_id: string
+          target_type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          target_id?: string
+          target_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -267,6 +378,7 @@ export type Database = {
         Row: {
           branch_id: string
           created_at: string
+          current_playlist_id: string | null
           id: string
           is_playing: boolean
           last_heartbeat: string | null
@@ -280,6 +392,7 @@ export type Database = {
         Insert: {
           branch_id: string
           created_at?: string
+          current_playlist_id?: string | null
           id?: string
           is_playing?: boolean
           last_heartbeat?: string | null
@@ -293,6 +406,7 @@ export type Database = {
         Update: {
           branch_id?: string
           created_at?: string
+          current_playlist_id?: string | null
           id?: string
           is_playing?: boolean
           last_heartbeat?: string | null
@@ -309,6 +423,13 @@ export type Database = {
             columns: ["branch_id"]
             isOneToOne: false
             referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screens_current_playlist_id_fkey"
+            columns: ["current_playlist_id"]
+            isOneToOne: false
+            referencedRelation: "playlists"
             referencedColumns: ["id"]
           },
         ]

@@ -21,10 +21,12 @@ export interface Screen {
   groupIds: string[];
   orientation: 'landscape' | 'portrait';
   resolution: string;
-  status: 'online' | 'offline';
+  status: 'online' | 'offline' | 'idle';
   isPlaying: boolean;
+  lastHeartbeat: Date | null;
   lastUpdated: Date;
   contentIds: string[];
+  currentPlaylistId: string | null;
 }
 
 export interface ContentItem {
@@ -36,6 +38,39 @@ export interface ContentItem {
   duration?: number; // in seconds, for videos or image display time
   fileSize: number;
   uploadedAt: Date;
+}
+
+export interface Playlist {
+  id: string;
+  name: string;
+  targetType: 'screen' | 'group' | 'branch';
+  targetId: string;
+  isActive: boolean;
+  items: PlaylistItem[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface PlaylistItem {
+  id: string;
+  playlistId: string;
+  contentId: string;
+  displayOrder: number;
+  duration: number;
+  content?: ContentItem;
+}
+
+export interface DisplaySettings {
+  id: string;
+  targetType: 'screen' | 'group' | 'branch';
+  targetId: string;
+  slideDuration: number;
+  transitionType: 'none' | 'fade' | 'slide' | 'crossfade';
+  transitionDuration: number;
+  playbackOrder: 'loop' | 'shuffle';
+  contentScaling: 'fit' | 'fill' | 'stretch';
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface Schedule {
@@ -57,8 +92,10 @@ export interface DashboardStats {
   totalScreens: number;
   onlineScreens: number;
   offlineScreens: number;
+  idleScreens: number;
   totalBranches: number;
   totalGroups: number;
   totalContent: number;
+  activePlaylists: number;
   activeSchedules: number;
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Monitor, Building2, Layers, FolderOpen, Calendar, Wifi, WifiOff } from 'lucide-react';
+import { Monitor, Building2, Layers, FolderOpen, Calendar, Wifi, WifiOff, CirclePause, ListMusic } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { ScreenStatusList } from '@/components/dashboard/ScreenStatusList';
@@ -66,33 +66,39 @@ export default function Dashboard() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <StatCard
             title="Total Screens"
             value={stats?.totalScreens || 0}
             icon={<Monitor className="h-6 w-6" />}
           />
           <StatCard
-            title="Online Screens"
+            title="Online"
             value={stats?.onlineScreens || 0}
             icon={<Wifi className="h-6 w-6" />}
             variant="success"
           />
           <StatCard
-            title="Offline Screens"
+            title="Idle"
+            value={stats?.idleScreens || 0}
+            icon={<CirclePause className="h-6 w-6" />}
+            variant="warning"
+          />
+          <StatCard
+            title="Offline"
             value={stats?.offlineScreens || 0}
             icon={<WifiOff className="h-6 w-6" />}
             variant="danger"
           />
           <StatCard
-            title="Active Schedules"
-            value={stats?.activeSchedules || 0}
-            icon={<Calendar className="h-6 w-6" />}
+            title="Active Playlists"
+            value={stats?.activePlaylists || 0}
+            icon={<ListMusic className="h-6 w-6" />}
           />
         </div>
 
         {/* Secondary Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <StatCard
             title="Branches"
             value={stats?.totalBranches || 0}
@@ -107,6 +113,11 @@ export default function Dashboard() {
             title="Content Items"
             value={stats?.totalContent || 0}
             icon={<FolderOpen className="h-6 w-6" />}
+          />
+          <StatCard
+            title="Active Schedules"
+            value={stats?.activeSchedules || 0}
+            icon={<Calendar className="h-6 w-6" />}
           />
         </div>
 
