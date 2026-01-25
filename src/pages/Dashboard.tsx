@@ -59,33 +59,33 @@ export default function Dashboard() {
       <div className="space-y-6 animate-fade-in">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold text-foreground">لوحة التحكم</h1>
+          <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
           <p className="text-muted-foreground mt-1">
-            مرحباً بك! إليك نظرة عامة على شبكة اللافتات الرقمية الخاصة بك.
+            Welcome! Here's an overview of your digital signage network.
           </p>
         </div>
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
-            title="إجمالي الشاشات"
+            title="Total Screens"
             value={stats?.totalScreens || 0}
             icon={<Monitor className="h-6 w-6" />}
           />
           <StatCard
-            title="شاشات متصلة"
+            title="Online Screens"
             value={stats?.onlineScreens || 0}
             icon={<Wifi className="h-6 w-6" />}
             variant="success"
           />
           <StatCard
-            title="شاشات غير متصلة"
+            title="Offline Screens"
             value={stats?.offlineScreens || 0}
             icon={<WifiOff className="h-6 w-6" />}
             variant="danger"
           />
           <StatCard
-            title="جداول نشطة"
+            title="Active Schedules"
             value={stats?.activeSchedules || 0}
             icon={<Calendar className="h-6 w-6" />}
           />
@@ -94,17 +94,17 @@ export default function Dashboard() {
         {/* Secondary Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <StatCard
-            title="الفروع"
+            title="Branches"
             value={stats?.totalBranches || 0}
             icon={<Building2 className="h-6 w-6" />}
           />
           <StatCard
-            title="مجموعات الشاشات"
+            title="Screen Groups"
             value={stats?.totalGroups || 0}
             icon={<Layers className="h-6 w-6" />}
           />
           <StatCard
-            title="عناصر المحتوى"
+            title="Content Items"
             value={stats?.totalContent || 0}
             icon={<FolderOpen className="h-6 w-6" />}
           />

@@ -58,7 +58,6 @@ import {
 } from '@/lib/api';
 import { Screen, Branch, ScreenGroup } from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
-import { ar } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Screens() {
@@ -107,8 +106,8 @@ export default function Screens() {
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({
-        title: 'خطأ',
-        description: 'فشل في جلب البيانات',
+        title: 'Error',
+        description: 'Failed to fetch data',
         variant: 'destructive',
       });
     } finally {
@@ -117,7 +116,7 @@ export default function Screens() {
   };
 
   const getBranchName = (branchId: string) => {
-    return branches.find(b => b.id === branchId)?.name || 'غير معروف';
+    return branches.find(b => b.id === branchId)?.name || 'Unknown';
   };
 
   const getGroupNames = (groupIds: string[]) => {
@@ -140,13 +139,13 @@ export default function Screens() {
       await deleteScreen(screenId);
       setScreens(prev => prev.filter(s => s.id !== screenId));
       toast({
-        title: 'تم الحذف',
-        description: 'تم حذف الشاشة بنجاح.',
+        title: 'Deleted',
+        description: 'Screen deleted successfully.',
       });
     } catch (error) {
       toast({
-        title: 'خطأ',
-        description: 'فشل في حذف الشاشة.',
+        title: 'Error',
+        description: 'Failed to delete screen.',
         variant: 'destructive',
       });
     }
@@ -155,8 +154,8 @@ export default function Screens() {
   const handleCreateScreen = async () => {
     if (!newScreenName || !newScreenSlug || !newScreenBranch) {
       toast({
-        title: 'خطأ',
-        description: 'الرجاء ملء جميع الحقول المطلوبة.',
+        title: 'Error',
+        description: 'Please fill in all required fields.',
         variant: 'destructive',
       });
       return;
@@ -175,13 +174,13 @@ export default function Screens() {
       setIsAddScreenOpen(false);
       resetScreenForm();
       toast({
-        title: 'تم الإنشاء',
-        description: 'تم إنشاء الشاشة بنجاح.',
+        title: 'Created',
+        description: 'Screen created successfully.',
       });
     } catch (error: any) {
       toast({
-        title: 'خطأ',
-        description: error.message || 'فشل في إنشاء الشاشة.',
+        title: 'Error',
+        description: error.message || 'Failed to create screen.',
         variant: 'destructive',
       });
     } finally {
@@ -192,8 +191,8 @@ export default function Screens() {
   const handleCreateBranch = async () => {
     if (!newBranchName) {
       toast({
-        title: 'خطأ',
-        description: 'الرجاء إدخال اسم الفرع.',
+        title: 'Error',
+        description: 'Please enter a branch name.',
         variant: 'destructive',
       });
       return;
@@ -207,13 +206,13 @@ export default function Screens() {
       setNewBranchName('');
       setNewBranchLocation('');
       toast({
-        title: 'تم الإنشاء',
-        description: 'تم إنشاء الفرع بنجاح.',
+        title: 'Created',
+        description: 'Branch created successfully.',
       });
     } catch (error) {
       toast({
-        title: 'خطأ',
-        description: 'فشل في إنشاء الفرع.',
+        title: 'Error',
+        description: 'Failed to create branch.',
         variant: 'destructive',
       });
     } finally {
@@ -224,8 +223,8 @@ export default function Screens() {
   const handleCreateGroup = async () => {
     if (!newGroupName || !newGroupBranch) {
       toast({
-        title: 'خطأ',
-        description: 'الرجاء ملء جميع الحقول المطلوبة.',
+        title: 'Error',
+        description: 'Please fill in all required fields.',
         variant: 'destructive',
       });
       return;
@@ -240,13 +239,13 @@ export default function Screens() {
       setNewGroupDescription('');
       setNewGroupBranch('');
       toast({
-        title: 'تم الإنشاء',
-        description: 'تم إنشاء المجموعة بنجاح.',
+        title: 'Created',
+        description: 'Group created successfully.',
       });
     } catch (error) {
       toast({
-        title: 'خطأ',
-        description: 'فشل في إنشاء المجموعة.',
+        title: 'Error',
+        description: 'Failed to create group.',
         variant: 'destructive',
       });
     } finally {
@@ -283,9 +282,9 @@ export default function Screens() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">إدارة الشاشات</h1>
+            <h1 className="text-3xl font-bold text-foreground">Screen Management</h1>
             <p className="text-muted-foreground mt-1">
-              إدارة الشاشات والفروع والمجموعات
+              Manage screens, branches, and groups
             </p>
           </div>
           <div className="flex gap-2">
@@ -293,29 +292,29 @@ export default function Screens() {
               <DialogTrigger asChild>
                 <Button variant="secondary" size="sm">
                   <Building2 className="h-4 w-4 mr-2" />
-                  إضافة فرع
+                  Add Branch
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>إضافة فرع جديد</DialogTitle>
+                  <DialogTitle>Add New Branch</DialogTitle>
                   <DialogDescription>
-                    إنشاء موقع فرع جديد للشاشات.
+                    Create a new branch location for screens.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
-                    <Label>اسم الفرع</Label>
+                    <Label>Branch Name</Label>
                     <Input 
-                      placeholder="مثال: الفرع الرئيسي" 
+                      placeholder="e.g., Main Branch" 
                       value={newBranchName}
                       onChange={(e) => setNewBranchName(e.target.value)}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>الموقع</Label>
+                    <Label>Location</Label>
                     <Input 
-                      placeholder="مثال: شارع الملك فهد" 
+                      placeholder="e.g., 123 Main Street" 
                       value={newBranchLocation}
                       onChange={(e) => setNewBranchLocation(e.target.value)}
                     />
@@ -323,7 +322,7 @@ export default function Screens() {
                 </div>
                 <Button className="w-full" onClick={handleCreateBranch} disabled={isSaving}>
                   {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  إنشاء الفرع
+                  Create Branch
                 </Button>
               </DialogContent>
             </Dialog>
@@ -332,38 +331,38 @@ export default function Screens() {
               <DialogTrigger asChild>
                 <Button variant="secondary" size="sm">
                   <Layers className="h-4 w-4 mr-2" />
-                  إضافة مجموعة
+                  Add Group
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>إضافة مجموعة جديدة</DialogTitle>
+                  <DialogTitle>Add New Group</DialogTitle>
                   <DialogDescription>
-                    إنشاء مجموعة شاشات لتنظيم العروض.
+                    Create a screen group to organize displays.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
-                    <Label>اسم المجموعة</Label>
+                    <Label>Group Name</Label>
                     <Input 
-                      placeholder="مثال: قوائم الطعام" 
+                      placeholder="e.g., Menu Displays" 
                       value={newGroupName}
                       onChange={(e) => setNewGroupName(e.target.value)}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>الوصف</Label>
+                    <Label>Description</Label>
                     <Input 
-                      placeholder="مثال: شاشات عرض القوائم الرقمية" 
+                      placeholder="e.g., Digital menu screens" 
                       value={newGroupDescription}
                       onChange={(e) => setNewGroupDescription(e.target.value)}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>الفرع</Label>
+                    <Label>Branch</Label>
                     <Select value={newGroupBranch} onValueChange={setNewGroupBranch}>
                       <SelectTrigger>
-                        <SelectValue placeholder="اختر الفرع" />
+                        <SelectValue placeholder="Select branch" />
                       </SelectTrigger>
                       <SelectContent>
                         {branches.map(branch => (
@@ -377,7 +376,7 @@ export default function Screens() {
                 </div>
                 <Button className="w-full" onClick={handleCreateGroup} disabled={isSaving}>
                   {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  إنشاء المجموعة
+                  Create Group
                 </Button>
               </DialogContent>
             </Dialog>
@@ -386,40 +385,39 @@ export default function Screens() {
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="h-4 w-4 mr-2" />
-                  إضافة شاشة
+                  Add Screen
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-md">
                 <DialogHeader>
-                  <DialogTitle>إضافة شاشة جديدة</DialogTitle>
+                  <DialogTitle>Add New Screen</DialogTitle>
                   <DialogDescription>
-                    تكوين شاشة عرض جديدة لشبكة اللافتات.
+                    Configure a new display screen for your signage network.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
-                    <Label>اسم الشاشة</Label>
+                    <Label>Screen Name</Label>
                     <Input 
-                      placeholder="مثال: شاشة المدخل الرئيسي" 
+                      placeholder="e.g., Main Entrance Display" 
                       value={newScreenName}
                       onChange={(e) => setNewScreenName(e.target.value)}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>معرّف الرابط (Slug)</Label>
+                    <Label>URL Slug</Label>
                     <Input 
-                      placeholder="مثال: main-entrance" 
+                      placeholder="e.g., main-entrance" 
                       value={newScreenSlug}
                       onChange={(e) => setNewScreenSlug(e.target.value)}
-                      dir="ltr"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>الفرع</Label>
+                      <Label>Branch</Label>
                       <Select value={newScreenBranch} onValueChange={setNewScreenBranch}>
                         <SelectTrigger>
-                          <SelectValue placeholder="اختر الفرع" />
+                          <SelectValue placeholder="Select branch" />
                         </SelectTrigger>
                         <SelectContent>
                           {branches.map(branch => (
@@ -431,23 +429,23 @@ export default function Screens() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>الاتجاه</Label>
+                      <Label>Orientation</Label>
                       <Select value={newScreenOrientation} onValueChange={setNewScreenOrientation}>
                         <SelectTrigger>
-                          <SelectValue placeholder="اختر" />
+                          <SelectValue placeholder="Select" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="landscape">أفقي</SelectItem>
-                          <SelectItem value="portrait">عمودي</SelectItem>
+                          <SelectItem value="landscape">Landscape</SelectItem>
+                          <SelectItem value="portrait">Portrait</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label>الدقة</Label>
+                    <Label>Resolution</Label>
                     <Select value={newScreenResolution} onValueChange={setNewScreenResolution}>
                       <SelectTrigger>
-                        <SelectValue placeholder="اختر الدقة" />
+                        <SelectValue placeholder="Select resolution" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="1920x1080">1920x1080 (Full HD)</SelectItem>
@@ -460,7 +458,7 @@ export default function Screens() {
                 </div>
                 <Button className="w-full" onClick={handleCreateScreen} disabled={isSaving}>
                   {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  إنشاء الشاشة
+                  Create Screen
                 </Button>
               </DialogContent>
             </Dialog>
@@ -472,15 +470,15 @@ export default function Screens() {
           <TabsList>
             <TabsTrigger value="screens" className="gap-2">
               <Monitor className="h-4 w-4" />
-              الشاشات ({screens.length})
+              Screens ({screens.length})
             </TabsTrigger>
             <TabsTrigger value="branches" className="gap-2">
               <Building2 className="h-4 w-4" />
-              الفروع ({branches.length})
+              Branches ({branches.length})
             </TabsTrigger>
             <TabsTrigger value="groups" className="gap-2">
               <Layers className="h-4 w-4" />
-              المجموعات ({groups.length})
+              Groups ({groups.length})
             </TabsTrigger>
           </TabsList>
 
@@ -490,7 +488,7 @@ export default function Screens() {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="بحث في الشاشات..."
+                  placeholder="Search screens..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
@@ -499,10 +497,10 @@ export default function Screens() {
               <Select value={filterBranch} onValueChange={setFilterBranch}>
                 <SelectTrigger className="w-[180px]">
                   <Building2 className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="جميع الفروع" />
+                  <SelectValue placeholder="All Branches" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">جميع الفروع</SelectItem>
+                  <SelectItem value="all">All Branches</SelectItem>
                   {branches.map(branch => (
                     <SelectItem key={branch.id} value={branch.id}>
                       {branch.name}
@@ -513,12 +511,12 @@ export default function Screens() {
               <Select value={filterStatus} onValueChange={setFilterStatus}>
                 <SelectTrigger className="w-[140px]">
                   <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="جميع الحالات" />
+                  <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">جميع الحالات</SelectItem>
-                  <SelectItem value="online">متصل</SelectItem>
-                  <SelectItem value="offline">غير متصل</SelectItem>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="online">Online</SelectItem>
+                  <SelectItem value="offline">Offline</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -527,9 +525,9 @@ export default function Screens() {
             {filteredScreens.length === 0 ? (
               <div className="text-center py-12 stat-card">
                 <Monitor className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-foreground">لا توجد شاشات</h3>
+                <h3 className="text-lg font-semibold text-foreground">No screens found</h3>
                 <p className="text-muted-foreground mt-1">
-                  أنشئ أول شاشة للبدء.
+                  Create your first screen to get started.
                 </p>
               </div>
             ) : (
@@ -561,11 +559,11 @@ export default function Screens() {
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => handlePreview(screen)}>
                             <Eye className="h-4 w-4 mr-2" />
-                            معاينة
+                            Preview
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handlePreview(screen)}>
                             <ExternalLink className="h-4 w-4 mr-2" />
-                            فتح رابط العرض
+                            Open Display URL
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem 
@@ -573,7 +571,7 @@ export default function Screens() {
                             onClick={() => handleDeleteScreen(screen.id)}
                           >
                             <Trash2 className="h-4 w-4 mr-2" />
-                            حذف
+                            Delete
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -589,10 +587,10 @@ export default function Screens() {
                         <Badge variant={screen.status === 'online' ? 'default' : 'destructive'} className={cn(
                           screen.status === 'online' ? 'bg-success/20 text-success border-success/30' : ''
                         )}>
-                          {screen.status === 'online' ? 'متصل' : 'غير متصل'}
+                          {screen.status === 'online' ? 'Online' : 'Offline'}
                         </Badge>
                         <Badge variant="secondary">
-                          {screen.orientation === 'landscape' ? 'أفقي' : 'عمودي'}
+                          {screen.orientation === 'landscape' ? 'Landscape' : 'Portrait'}
                         </Badge>
                       </div>
 
@@ -606,18 +604,18 @@ export default function Screens() {
 
                       <div className="pt-3 border-t border-border">
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">الدقة</span>
+                          <span className="text-muted-foreground">Resolution</span>
                           <span className="text-foreground">{screen.resolution}</span>
                         </div>
                         <div className="flex justify-between text-sm mt-1">
-                          <span className="text-muted-foreground">آخر تحديث</span>
+                          <span className="text-muted-foreground">Last Updated</span>
                           <span className="text-foreground">
-                            {formatDistanceToNow(screen.lastUpdated, { addSuffix: true, locale: ar })}
+                            {formatDistanceToNow(screen.lastUpdated, { addSuffix: true })}
                           </span>
                         </div>
                         <div className="flex justify-between text-sm mt-1">
-                          <span className="text-muted-foreground">رابط العرض</span>
-                          <span className="text-primary text-xs" dir="ltr">/display/{screen.slug}</span>
+                          <span className="text-muted-foreground">Display URL</span>
+                          <span className="text-primary text-xs">/display/{screen.slug}</span>
                         </div>
                       </div>
                     </div>
@@ -631,9 +629,9 @@ export default function Screens() {
             {branches.length === 0 ? (
               <div className="text-center py-12 stat-card">
                 <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-foreground">لا توجد فروع</h3>
+                <h3 className="text-lg font-semibold text-foreground">No branches found</h3>
                 <p className="text-muted-foreground mt-1">
-                  أنشئ أول فرع للبدء.
+                  Create your first branch to get started.
                 </p>
               </div>
             ) : (
@@ -665,10 +663,10 @@ export default function Screens() {
                             <DropdownMenuItem className="text-destructive" onClick={async () => {
                               await deleteBranch(branch.id);
                               setBranches(prev => prev.filter(b => b.id !== branch.id));
-                              toast({ title: 'تم الحذف', description: 'تم حذف الفرع بنجاح.' });
+                              toast({ title: 'Deleted', description: 'Branch deleted successfully.' });
                             }}>
                               <Trash2 className="h-4 w-4 mr-2" />
-                              حذف
+                              Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -676,15 +674,15 @@ export default function Screens() {
                       <div className="grid grid-cols-3 gap-4 pt-3 border-t border-border">
                         <div className="text-center">
                           <p className="text-2xl font-bold text-foreground">{branchScreens.length}</p>
-                          <p className="text-xs text-muted-foreground">شاشات</p>
+                          <p className="text-xs text-muted-foreground">Screens</p>
                         </div>
                         <div className="text-center">
                           <p className="text-2xl font-bold text-success">{onlineCount}</p>
-                          <p className="text-xs text-muted-foreground">متصل</p>
+                          <p className="text-xs text-muted-foreground">Online</p>
                         </div>
                         <div className="text-center">
                           <p className="text-2xl font-bold text-foreground">{branchGroups.length}</p>
-                          <p className="text-xs text-muted-foreground">مجموعات</p>
+                          <p className="text-xs text-muted-foreground">Groups</p>
                         </div>
                       </div>
                     </div>
@@ -698,9 +696,9 @@ export default function Screens() {
             {groups.length === 0 ? (
               <div className="text-center py-12 stat-card">
                 <Layers className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-foreground">لا توجد مجموعات</h3>
+                <h3 className="text-lg font-semibold text-foreground">No groups found</h3>
                 <p className="text-muted-foreground mt-1">
-                  أنشئ أول مجموعة للبدء.
+                  Create your first group to get started.
                 </p>
               </div>
             ) : (
@@ -730,21 +728,21 @@ export default function Screens() {
                             <DropdownMenuItem className="text-destructive" onClick={async () => {
                               await deleteScreenGroup(group.id);
                               setGroups(prev => prev.filter(g => g.id !== group.id));
-                              toast({ title: 'تم الحذف', description: 'تم حذف المجموعة بنجاح.' });
+                              toast({ title: 'Deleted', description: 'Group deleted successfully.' });
                             }}>
                               <Trash2 className="h-4 w-4 mr-2" />
-                              حذف
+                              Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
                       <div className="pt-3 border-t border-border">
                         <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">الفرع</span>
+                          <span className="text-sm text-muted-foreground">Branch</span>
                           <Badge variant="secondary">{getBranchName(group.branchId)}</Badge>
                         </div>
                         <div className="flex justify-between items-center mt-2">
-                          <span className="text-sm text-muted-foreground">الشاشات</span>
+                          <span className="text-sm text-muted-foreground">Screens</span>
                           <span className="text-lg font-bold text-foreground">{groupScreens.length}</span>
                         </div>
                       </div>
