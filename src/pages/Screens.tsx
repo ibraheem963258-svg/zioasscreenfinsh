@@ -15,12 +15,15 @@ import {
   WifiOff,
   Loader2,
   Copy,
-  Link
+  Link,
+  Play,
+  Pause
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,6 +50,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   getScreens, 
   getBranches, 
@@ -56,7 +60,8 @@ import {
   createScreenGroup,
   deleteScreen,
   deleteBranch,
-  deleteScreenGroup
+  deleteScreenGroup,
+  toggleScreenPlaying
 } from '@/lib/api';
 import { Screen, Branch, ScreenGroup } from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
@@ -93,6 +98,38 @@ export default function Screens() {
 
   useEffect(() => {
     fetchData();
+
+    // Subscribe to realtime updates for screens
+    const channel = supabase
+      .channel('screens-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'screens',
+        },
+        (payload) => {
+          if (payload.eventType === 'UPDATE') {
+            const updatedScreen = payload.new as any;
+            setScreens(prev => prev.map(s => 
+              s.id === updatedScreen.id 
+                ? { 
+                    ...s, 
+                    status: updatedScreen.status as 'online' | 'offline',
+                    isPlaying: updatedScreen.is_playing ?? true,
+                    lastUpdated: new Date(updatedScreen.updated_at)
+                  }
+                : s
+            ));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchData = async () => {
@@ -169,6 +206,26 @@ export default function Screens() {
       toast({
         title: 'Error',
         description: 'Failed to delete screen.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleTogglePlaying = async (screen: Screen) => {
+    const newState = !screen.isPlaying;
+    try {
+      await toggleScreenPlaying(screen.id, newState);
+      setScreens(prev => prev.map(s => 
+        s.id === screen.id ? { ...s, isPlaying: newState } : s
+      ));
+      toast({
+        title: newState ? 'Playing' : 'Paused',
+        description: `Content on "${screen.name}" is now ${newState ? 'playing' : 'paused'}.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to toggle playback.',
         variant: 'destructive',
       });
     }
@@ -605,7 +662,7 @@ export default function Screens() {
                     </div>
 
                     <div className="space-y-3">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         {screen.status === 'online' ? (
                           <Wifi className="h-4 w-4 text-success" />
                         ) : (
@@ -616,6 +673,23 @@ export default function Screens() {
                         )}>
                           {screen.status === 'online' ? 'Online' : 'Offline'}
                         </Badge>
+                        {screen.status === 'online' && (
+                          <Badge 
+                            variant="outline" 
+                            className={cn(
+                              "gap-1",
+                              screen.isPlaying 
+                                ? 'bg-primary/10 text-primary border-primary/30' 
+                                : 'bg-muted text-muted-foreground'
+                            )}
+                          >
+                            {screen.isPlaying ? (
+                              <><Play className="h-3 w-3" /> Playing</>
+                            ) : (
+                              <><Pause className="h-3 w-3" /> Paused</>
+                            )}
+                          </Badge>
+                        )}
                         <Badge variant="secondary">
                           {screen.orientation === 'landscape' ? 'Landscape' : 'Portrait'}
                         </Badge>
@@ -630,7 +704,19 @@ export default function Screens() {
                       </div>
 
                       <div className="pt-3 border-t border-border">
-                        <div className="flex justify-between text-sm">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-muted-foreground">Content Playback</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">
+                              {screen.isPlaying ? 'On' : 'Off'}
+                            </span>
+                            <Switch 
+                              checked={screen.isPlaying} 
+                              onCheckedChange={() => handleTogglePlaying(screen)}
+                            />
+                          </div>
+                        </div>
+                        <div className="flex justify-between text-sm mt-2">
                           <span className="text-muted-foreground">Resolution</span>
                           <span className="text-foreground">{screen.resolution}</span>
                         </div>

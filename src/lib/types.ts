@@ -22,6 +22,7 @@ export interface Screen {
   orientation: 'landscape' | 'portrait';
   resolution: string;
   status: 'online' | 'offline';
+  isPlaying: boolean;
   lastUpdated: Date;
   contentIds: string[];
 }
