@@ -268,6 +268,7 @@ export type Database = {
           branch_id: string
           created_at: string
           id: string
+          is_playing: boolean
           last_heartbeat: string | null
           name: string
           orientation: string
@@ -280,6 +281,7 @@ export type Database = {
           branch_id: string
           created_at?: string
           id?: string
+          is_playing?: boolean
           last_heartbeat?: string | null
           name: string
           orientation?: string
@@ -292,6 +294,7 @@ export type Database = {
           branch_id?: string
           created_at?: string
           id?: string
+          is_playing?: boolean
           last_heartbeat?: string | null
           name?: string
           orientation?: string
