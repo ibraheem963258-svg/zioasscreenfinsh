@@ -19,7 +19,10 @@ export function ContentRenderer({
   const [nextIndex, setNextIndex] = useState(1);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [loadedIndexes, setLoadedIndexes] = useState<Set<number>>(new Set([0]));
-  const [displayOrder, setDisplayOrder] = useState<number[]>([]);
+  // Initialize displayOrder immediately to prevent black screen
+  const [displayOrder, setDisplayOrder] = useState<number[]>(() => 
+    content.length > 0 ? content.map((_, i) => i) : []
+  );
   const videoRef = useRef<HTMLVideoElement>(null);
   const nextVideoRef = useRef<HTMLVideoElement>(null);
 
@@ -102,16 +105,45 @@ export function ContentRenderer({
     }
   };
 
-  if (content.length === 0 || displayOrder.length === 0) {
+  // Early return only if no content - displayOrder will be synced immediately
+  if (content.length === 0) {
     return null;
   }
+  
+  // Ensure displayOrder is valid - fallback to sequential order
+  const effectiveDisplayOrder = displayOrder.length > 0 ? displayOrder : content.map((_, i) => i);
 
-  const contentIdx = displayOrder[currentIndex];
+  const contentIdx = effectiveDisplayOrder[currentIndex] ?? 0;
   const currentContent = content[contentIdx];
-  const nextContentIdx = displayOrder[nextIndex];
+  const nextContentIdx = effectiveDisplayOrder[nextIndex] ?? 0;
   const nextContent = content[nextContentIdx];
 
-  if (!currentContent) return null;
+  if (!currentContent) {
+    // Fallback to first content if index is invalid
+    const fallbackContent = content[0];
+    if (!fallbackContent) return null;
+    
+    return (
+      <div className="absolute inset-0 overflow-hidden bg-black">
+        {fallbackContent.type === 'image' ? (
+          <img
+            src={fallbackContent.url}
+            alt={fallbackContent.name}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <video
+            src={fallbackContent.url}
+            className="w-full h-full object-cover"
+            autoPlay
+            muted
+            loop
+            playsInline
+          />
+        )}
+      </div>
+    );
+  }
 
   const getScalingClass = () => {
     switch (settings.contentScaling) {
@@ -236,7 +268,7 @@ export function ContentRenderer({
       {/* Progress indicators */}
       {content.length > 1 && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-          {displayOrder.map((_, idx) => (
+          {effectiveDisplayOrder.map((_, idx) => (
             <div
               key={idx}
               className={cn(
