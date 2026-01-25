@@ -47,9 +47,15 @@ export default function Display() {
   const [isPlaylistTransitioning, setIsPlaylistTransitioning] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState<string>('');
   const pendingPlaylistRef = useRef<{ playlist: Playlist | null; content: ContentItem[] } | null>(null);
+  const currentPlaylistIdRef = useRef<string | null>(null);
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 10;
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  // Keep playlist ID ref in sync
+  useEffect(() => {
+    currentPlaylistIdRef.current = playlist?.id || null;
+  }, [playlist?.id]);
 
   // Fetch screen and content data
   const fetchData = useCallback(async () => {
@@ -171,22 +177,28 @@ export default function Display() {
       supabase.removeChannel(channelRef.current);
     }
 
-    // Fast content update function with smooth transition
+    // Fast content update function with smooth transition - uses ref for current playlist
     const quickRefresh = async (showTransition = true) => {
       try {
+        console.log('Quick refresh triggered...');
         const { playlist: activePlaylist, content: playlistContent } = await getActivePlaylistForScreen(screen.id);
         
-        // Check if playlist actually changed
-        const playlistChanged = activePlaylist?.id !== playlist?.id;
+        // Check if playlist actually changed using ref (always current)
+        const playlistChanged = activePlaylist?.id !== currentPlaylistIdRef.current;
+        
+        console.log('Playlist changed:', playlistChanged, 'New:', activePlaylist?.id, 'Current:', currentPlaylistIdRef.current);
         
         if (playlistChanged && showTransition && activePlaylist) {
           // Store pending data and show transition
           pendingPlaylistRef.current = { playlist: activePlaylist, content: playlistContent };
           setNewPlaylistName(activePlaylist.name);
           setIsPlaylistTransitioning(true);
-        } else {
-          // No transition needed, update directly
+        } else if (playlistChanged) {
+          // No transition, update directly
           setPlaylist(activePlaylist);
+          setContent(playlistContent);
+        } else {
+          // Same playlist, just update content (might have new items)
           setContent(playlistContent);
         }
       } catch (err) {
@@ -285,7 +297,7 @@ export default function Display() {
       });
 
     channelRef.current = channel;
-  }, [screen?.id, playlist?.id, fetchData]);
+  }, [screen?.id, fetchData]);
 
   // Reconnection handler with exponential backoff
   const handleReconnect = useCallback(() => {
