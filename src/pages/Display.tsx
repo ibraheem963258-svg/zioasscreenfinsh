@@ -10,6 +10,27 @@ import { ErrorScreen } from '@/components/display/ErrorScreen';
 import { IdleScreen } from '@/components/display/IdleScreen';
 import { PausedScreen } from '@/components/display/PausedScreen';
 
+// Connection status component
+function ConnectionStatus({ isOnline, isReconnecting }: { isOnline: boolean; isReconnecting: boolean }) {
+  if (isOnline && !isReconnecting) return null;
+  
+  return (
+    <div className="fixed top-4 right-4 z-50 flex items-center gap-2 bg-background/90 backdrop-blur px-4 py-2 rounded-lg shadow-lg border">
+      {isReconnecting ? (
+        <>
+          <div className="w-3 h-3 bg-warning rounded-full animate-pulse" />
+          <span className="text-sm text-warning">جاري إعادة الاتصال...</span>
+        </>
+      ) : (
+        <>
+          <div className="w-3 h-3 bg-destructive rounded-full" />
+          <span className="text-sm text-destructive">غير متصل</span>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function Display() {
   const { slug } = useParams<{ slug: string }>();
   const [screen, setScreen] = useState<Screen | null>(null);
@@ -19,6 +40,13 @@ export default function Display() {
   const [isPlaying, setIsPlaying] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Connection state
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isReconnecting, setIsReconnecting] = useState(false);
+  const reconnectAttempts = useRef(0);
+  const maxReconnectAttempts = 10;
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   // Fetch screen and content data
   const fetchData = useCallback(async () => {
@@ -90,6 +118,10 @@ export default function Display() {
         screenData.branch_id
       );
       setSettings(effectiveSettings);
+      
+      // Reset reconnect attempts on successful fetch
+      reconnectAttempts.current = 0;
+      setIsReconnecting(false);
 
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -99,32 +131,42 @@ export default function Display() {
     }
   }, [slug]);
 
-  // Initial fetch
+  // Handle online/offline status
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  // Heartbeat mechanism
-  useEffect(() => {
-    if (!screen?.id) return;
-
-    const heartbeat = async () => {
-      try {
-        await updateScreenStatus(screen.id, 'online');
-      } catch (err) {
-        console.error('Heartbeat failed:', err);
-      }
+    const handleOnline = () => {
+      console.log('Network: Online');
+      setIsOnline(true);
+      setIsReconnecting(true);
+      // Retry fetching data
+      fetchData().then(() => {
+        setIsReconnecting(false);
+        // Re-subscribe to realtime
+        setupRealtimeSubscription();
+      });
     };
 
-    // Send heartbeat every 30 seconds
-    const interval = setInterval(heartbeat, 30000);
+    const handleOffline = () => {
+      console.log('Network: Offline');
+      setIsOnline(false);
+    };
 
-    return () => clearInterval(interval);
-  }, [screen?.id]);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
 
-  // Subscribe to realtime updates with instant response
-  useEffect(() => {
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [fetchData]);
+
+  // Setup realtime subscription with reconnection logic
+  const setupRealtimeSubscription = useCallback(() => {
     if (!screen?.id) return;
+
+    // Remove existing channel if any
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+    }
 
     // Fast content update function
     const quickRefresh = async () => {
@@ -138,7 +180,7 @@ export default function Display() {
     };
 
     const channel = supabase
-      .channel(`display-${screen.id}-realtime`)
+      .channel(`display-${screen.id}-realtime-${Date.now()}`)
       // Screen updates (play/pause, status)
       .on(
         'postgres_changes',
@@ -208,14 +250,96 @@ export default function Display() {
           quickRefresh();
         }
       )
-      .subscribe((status) => {
+      .subscribe((status, err) => {
         console.log('Realtime subscription status:', status);
+        
+        if (status === 'SUBSCRIBED') {
+          reconnectAttempts.current = 0;
+          setIsReconnecting(false);
+        }
+        
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error('Realtime error:', err);
+          handleReconnect();
+        }
+        
+        if (status === 'CLOSED') {
+          console.log('Channel closed, attempting reconnect...');
+          handleReconnect();
+        }
       });
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    channelRef.current = channel;
   }, [screen?.id, playlist?.id, fetchData]);
+
+  // Reconnection handler with exponential backoff
+  const handleReconnect = useCallback(() => {
+    if (reconnectAttempts.current >= maxReconnectAttempts) {
+      console.log('Max reconnect attempts reached, reloading page...');
+      window.location.reload();
+      return;
+    }
+
+    setIsReconnecting(true);
+    reconnectAttempts.current += 1;
+    
+    // Exponential backoff: 1s, 2s, 4s, 8s, etc.
+    const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current - 1), 30000);
+    
+    console.log(`Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current}/${maxReconnectAttempts})`);
+    
+    setTimeout(() => {
+      if (navigator.onLine) {
+        fetchData().then(() => {
+          setupRealtimeSubscription();
+        });
+      } else {
+        handleReconnect();
+      }
+    }, delay);
+  }, [fetchData, setupRealtimeSubscription]);
+
+  // Initial fetch
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Setup realtime subscription when screen is loaded
+  useEffect(() => {
+    if (screen?.id) {
+      setupRealtimeSubscription();
+    }
+
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
+    };
+  }, [screen?.id, setupRealtimeSubscription]);
+
+  // Heartbeat mechanism with connection check
+  useEffect(() => {
+    if (!screen?.id) return;
+
+    const heartbeat = async () => {
+      if (!navigator.onLine) return;
+      
+      try {
+        await updateScreenStatus(screen.id, 'online');
+      } catch (err) {
+        console.error('Heartbeat failed:', err);
+        // If heartbeat fails, try to reconnect
+        if (navigator.onLine) {
+          handleReconnect();
+        }
+      }
+    };
+
+    // Send heartbeat every 30 seconds
+    const interval = setInterval(heartbeat, 30000);
+
+    return () => clearInterval(interval);
+  }, [screen?.id, handleReconnect]);
 
   // Enter fullscreen on load
   useEffect(() => {
@@ -233,14 +357,29 @@ export default function Display() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Auto-refresh every 5 minutes for stability
+  // Auto-refresh every 30 minutes for stability (instead of 5 minutes)
   useEffect(() => {
     const refreshInterval = setInterval(() => {
       window.location.reload();
-    }, 5 * 60 * 1000);
+    }, 30 * 60 * 1000);
 
     return () => clearInterval(refreshInterval);
   }, []);
+
+  // Visibility change handler - refresh when tab becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && navigator.onLine) {
+        console.log('Tab became visible, refreshing data...');
+        fetchData().then(() => {
+          setupRealtimeSubscription();
+        });
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [fetchData, setupRealtimeSubscription]);
 
   if (isLoading) {
     return <LoadingScreen message="Loading content..." />;
@@ -284,6 +423,7 @@ export default function Display() {
 
   return (
     <div className="display-fullscreen">
+      <ConnectionStatus isOnline={isOnline} isReconnecting={isReconnecting} />
       <ContentRenderer
         content={content}
         settings={settings}
