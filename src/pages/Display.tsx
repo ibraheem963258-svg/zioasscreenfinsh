@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { getScreenContent, updateScreenStatus } from '@/lib/api';
+import { supabase } from '@/integrations/supabase/client';
 import { Screen, ContentItem } from '@/lib/types';
 
 export default function Display() {
@@ -11,6 +12,7 @@ export default function Display() {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(true);
 
   // Fetch screen and content
   useEffect(() => {
@@ -21,6 +23,7 @@ export default function Display() {
         const { screen: screenData, content: contentData } = await getScreenContent(slug);
         setScreen(screenData);
         setContent(contentData);
+        setIsPlaying(screenData?.isPlaying ?? true);
         
         // Update screen status to online
         if (screenData) {
@@ -50,6 +53,32 @@ export default function Display() {
     return () => clearInterval(heartbeatInterval);
   }, [slug]);
 
+  // Subscribe to realtime updates for this screen's isPlaying status
+  useEffect(() => {
+    if (!screen?.id) return;
+
+    const channel = supabase
+      .channel(`screen-${screen.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'screens',
+          filter: `id=eq.${screen.id}`,
+        },
+        (payload) => {
+          const updatedScreen = payload.new as any;
+          setIsPlaying(updatedScreen.is_playing ?? true);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [screen?.id]);
+
   const nextSlide = useCallback(() => {
     if (content.length <= 1) return;
     
@@ -60,16 +89,16 @@ export default function Display() {
     }, 1000);
   }, [content.length]);
 
-  // Auto-advance slides
+  // Auto-advance slides (only when playing)
   useEffect(() => {
-    if (content.length === 0) return;
+    if (content.length === 0 || !isPlaying) return;
     
     const currentContent = content[currentIndex];
     const duration = (currentContent?.duration || 10) * 1000;
     
     const timer = setTimeout(nextSlide, duration);
     return () => clearTimeout(timer);
-  }, [currentIndex, content, nextSlide]);
+  }, [currentIndex, content, nextSlide, isPlaying]);
 
   // Auto-refresh every 5 minutes to get latest content
   useEffect(() => {
@@ -129,6 +158,23 @@ export default function Display() {
           </div>
           <h1 className="text-3xl font-bold mb-2">{screen.name}</h1>
           <p className="text-lg opacity-60">No content assigned to this screen</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show paused state
+  if (!isPlaying) {
+    return (
+      <div className="display-fullscreen flex items-center justify-center bg-gradient-to-br from-gray-900 to-black">
+        <div className="text-center text-white">
+          <div className="w-24 h-24 mx-auto mb-8 rounded-full bg-white/10 flex items-center justify-center">
+            <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h1 className="text-3xl font-bold mb-2">{screen.name}</h1>
+          <p className="text-lg opacity-60">Content playback is paused</p>
         </div>
       </div>
     );

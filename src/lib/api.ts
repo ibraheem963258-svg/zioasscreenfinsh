@@ -116,6 +116,7 @@ export async function getScreens(): Promise<Screen[]> {
     orientation: s.orientation as 'landscape' | 'portrait',
     resolution: s.resolution,
     status: s.status as 'online' | 'offline',
+    isPlaying: (s as any).is_playing ?? true,
     lastUpdated: new Date(s.updated_at),
     contentIds: contentAssignments.filter(c => c.target_id === s.id).map(c => c.content_id),
   }));
@@ -155,6 +156,7 @@ export async function createScreen(
     orientation: data.orientation as 'landscape' | 'portrait',
     resolution: data.resolution,
     status: data.status as 'online' | 'offline',
+    isPlaying: (data as any).is_playing ?? true,
     lastUpdated: new Date(data.updated_at),
     contentIds: [],
   };
@@ -173,6 +175,15 @@ export async function updateScreenStatus(id: string, status: 'online' | 'offline
   const { error } = await supabase
     .from('screens')
     .update({ status, last_heartbeat: new Date().toISOString() })
+    .eq('id', id);
+  
+  if (error) throw error;
+}
+
+export async function toggleScreenPlaying(id: string, isPlaying: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('screens')
+    .update({ is_playing: isPlaying } as any)
     .eq('id', id);
   
   if (error) throw error;
@@ -467,6 +478,7 @@ export async function getScreenContent(slug: string): Promise<{ screen: Screen |
     orientation: screenData.orientation as 'landscape' | 'portrait',
     resolution: screenData.resolution,
     status: screenData.status as 'online' | 'offline',
+    isPlaying: (screenData as any).is_playing ?? true,
     lastUpdated: new Date(screenData.updated_at),
     contentIds: Array.from(relevantContentIds),
   };

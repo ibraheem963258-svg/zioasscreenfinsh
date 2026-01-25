@@ -16,18 +16,18 @@ export const mockGroups: ScreenGroup[] = [
 ];
 
 export const mockScreens: Screen[] = [
-  { id: 's1', name: 'Main Entrance Display', slug: 'main-entrance', branchId: 'b1', groupIds: ['g1', 'g2'], orientation: 'landscape', resolution: '1920x1080', status: 'online', lastUpdated: new Date(), contentIds: ['c1', 'c2'] },
-  { id: 's2', name: 'Counter Menu 1', slug: 'counter-menu-1', branchId: 'b1', groupIds: ['g1'], orientation: 'portrait', resolution: '1080x1920', status: 'online', lastUpdated: new Date(), contentIds: ['c1'] },
-  { id: 's3', name: 'Counter Menu 2', slug: 'counter-menu-2', branchId: 'b1', groupIds: ['g1'], orientation: 'portrait', resolution: '1080x1920', status: 'online', lastUpdated: new Date(), contentIds: ['c1'] },
-  { id: 's4', name: 'Window Display', slug: 'window-display', branchId: 'b1', groupIds: ['g2'], orientation: 'landscape', resolution: '3840x2160', status: 'offline', lastUpdated: new Date(Date.now() - 3600000), contentIds: ['c2', 'c3'] },
-  { id: 's5', name: 'Gate B1 Info', slug: 'gate-b1-info', branchId: 'b2', groupIds: ['g3'], orientation: 'landscape', resolution: '1920x1080', status: 'online', lastUpdated: new Date(), contentIds: ['c4'] },
-  { id: 's6', name: 'Gate B2 Info', slug: 'gate-b2-info', branchId: 'b2', groupIds: ['g3'], orientation: 'landscape', resolution: '1920x1080', status: 'online', lastUpdated: new Date(), contentIds: ['c4'] },
-  { id: 's7', name: 'Terminal Map', slug: 'terminal-map', branchId: 'b2', groupIds: ['g3'], orientation: 'landscape', resolution: '3840x2160', status: 'online', lastUpdated: new Date(), contentIds: ['c5'] },
-  { id: 's8', name: 'Mall Directory 1', slug: 'mall-directory-1', branchId: 'b3', groupIds: ['g4'], orientation: 'portrait', resolution: '1080x1920', status: 'online', lastUpdated: new Date(), contentIds: ['c6'] },
-  { id: 's9', name: 'Mall Directory 2', slug: 'mall-directory-2', branchId: 'b3', groupIds: ['g4'], orientation: 'portrait', resolution: '1080x1920', status: 'offline', lastUpdated: new Date(Date.now() - 7200000), contentIds: ['c6'] },
-  { id: 's10', name: 'Food Court Display', slug: 'food-court-display', branchId: 'b3', groupIds: ['g4'], orientation: 'landscape', resolution: '1920x1080', status: 'online', lastUpdated: new Date(), contentIds: ['c2', 'c3'] },
-  { id: 's11', name: 'Departure Board Main', slug: 'departure-main', branchId: 'b4', groupIds: ['g5'], orientation: 'landscape', resolution: '3840x2160', status: 'online', lastUpdated: new Date(), contentIds: ['c7'] },
-  { id: 's12', name: 'Platform 1 Info', slug: 'platform-1-info', branchId: 'b4', groupIds: ['g5'], orientation: 'landscape', resolution: '1920x1080', status: 'online', lastUpdated: new Date(), contentIds: ['c7'] },
+  { id: 's1', name: 'Main Entrance Display', slug: 'main-entrance', branchId: 'b1', groupIds: ['g1', 'g2'], orientation: 'landscape', resolution: '1920x1080', status: 'online', isPlaying: true, lastUpdated: new Date(), contentIds: ['c1', 'c2'] },
+  { id: 's2', name: 'Counter Menu 1', slug: 'counter-menu-1', branchId: 'b1', groupIds: ['g1'], orientation: 'portrait', resolution: '1080x1920', status: 'online', isPlaying: true, lastUpdated: new Date(), contentIds: ['c1'] },
+  { id: 's3', name: 'Counter Menu 2', slug: 'counter-menu-2', branchId: 'b1', groupIds: ['g1'], orientation: 'portrait', resolution: '1080x1920', status: 'online', isPlaying: true, lastUpdated: new Date(), contentIds: ['c1'] },
+  { id: 's4', name: 'Window Display', slug: 'window-display', branchId: 'b1', groupIds: ['g2'], orientation: 'landscape', resolution: '3840x2160', status: 'offline', isPlaying: false, lastUpdated: new Date(Date.now() - 3600000), contentIds: ['c2', 'c3'] },
+  { id: 's5', name: 'Gate B1 Info', slug: 'gate-b1-info', branchId: 'b2', groupIds: ['g3'], orientation: 'landscape', resolution: '1920x1080', status: 'online', isPlaying: true, lastUpdated: new Date(), contentIds: ['c4'] },
+  { id: 's6', name: 'Gate B2 Info', slug: 'gate-b2-info', branchId: 'b2', groupIds: ['g3'], orientation: 'landscape', resolution: '1920x1080', status: 'online', isPlaying: true, lastUpdated: new Date(), contentIds: ['c4'] },
+  { id: 's7', name: 'Terminal Map', slug: 'terminal-map', branchId: 'b2', groupIds: ['g3'], orientation: 'landscape', resolution: '3840x2160', status: 'online', isPlaying: true, lastUpdated: new Date(), contentIds: ['c5'] },
+  { id: 's8', name: 'Mall Directory 1', slug: 'mall-directory-1', branchId: 'b3', groupIds: ['g4'], orientation: 'portrait', resolution: '1080x1920', status: 'online', isPlaying: true, lastUpdated: new Date(), contentIds: ['c6'] },
+  { id: 's9', name: 'Mall Directory 2', slug: 'mall-directory-2', branchId: 'b3', groupIds: ['g4'], orientation: 'portrait', resolution: '1080x1920', status: 'offline', isPlaying: false, lastUpdated: new Date(Date.now() - 7200000), contentIds: ['c6'] },
+  { id: 's10', name: 'Food Court Display', slug: 'food-court-display', branchId: 'b3', groupIds: ['g4'], orientation: 'landscape', resolution: '1920x1080', status: 'online', isPlaying: true, lastUpdated: new Date(), contentIds: ['c2', 'c3'] },
+  { id: 's11', name: 'Departure Board Main', slug: 'departure-main', branchId: 'b4', groupIds: ['g5'], orientation: 'landscape', resolution: '3840x2160', status: 'online', isPlaying: true, lastUpdated: new Date(), contentIds: ['c7'] },
+  { id: 's12', name: 'Platform 1 Info', slug: 'platform-1-info', branchId: 'b4', groupIds: ['g5'], orientation: 'landscape', resolution: '1920x1080', status: 'online', isPlaying: true, lastUpdated: new Date(), contentIds: ['c7'] },
 ];
 
 export const mockContent: ContentItem[] = [
