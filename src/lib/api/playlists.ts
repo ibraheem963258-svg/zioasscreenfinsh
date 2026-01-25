@@ -175,12 +175,30 @@ export async function updatePlaylist(
 }
 
 export async function activatePlaylist(playlistId: string): Promise<void> {
+  // First, get the playlist to know its target
+  const { data: playlistData, error: fetchError } = await supabase
+    .from('playlists')
+    .select('target_type, target_id')
+    .eq('id', playlistId)
+    .single();
+  
+  if (fetchError) throw fetchError;
+
+  // Activate the playlist (the database trigger will deactivate others)
   const { error } = await supabase
     .from('playlists')
     .update({ is_active: true })
     .eq('id', playlistId);
   
   if (error) throw error;
+
+  // If this playlist is for a screen, update the screen's current_playlist_id
+  if (playlistData.target_type === 'screen') {
+    await supabase
+      .from('screens')
+      .update({ current_playlist_id: playlistId })
+      .eq('id', playlistData.target_id);
+  }
 }
 
 export async function deactivatePlaylist(playlistId: string): Promise<void> {
@@ -212,6 +230,23 @@ export async function deactivatePlaylist(playlistId: string): Promise<void> {
 }
 
 export async function deletePlaylist(playlistId: string): Promise<void> {
+  // First, get the playlist to know its target
+  const { data: playlistData, error: fetchError } = await supabase
+    .from('playlists')
+    .select('target_type, target_id')
+    .eq('id', playlistId)
+    .maybeSingle();
+  
+  // Clear screen's current_playlist_id if this playlist was assigned to it
+  if (playlistData?.target_type === 'screen') {
+    await supabase
+      .from('screens')
+      .update({ current_playlist_id: null })
+      .eq('id', playlistData.target_id)
+      .eq('current_playlist_id', playlistId);
+  }
+
+  // Delete the playlist
   const { error } = await supabase
     .from('playlists')
     .delete()
