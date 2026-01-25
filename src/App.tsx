@@ -9,6 +9,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Screens from "./pages/Screens";
 import Content from "./pages/Content";
+import Playlists from "./pages/Playlists";
 import Schedules from "./pages/Schedules";
 import Settings from "./pages/Settings";
 import Display from "./pages/Display";
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/screens" element={<Screens />} />
             <Route path="/content" element={<Content />} />
+            <Route path="/playlists" element={<Playlists />} />
             <Route path="/schedules" element={<Schedules />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/display/:slug" element={<Display />} />

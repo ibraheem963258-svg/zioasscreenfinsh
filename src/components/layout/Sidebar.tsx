@@ -6,7 +6,8 @@ import {
   Calendar, 
   Settings,
   LogOut,
-  Tv2
+  Tv2,
+  ListVideo
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -15,6 +16,7 @@ const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Screens', href: '/screens', icon: Monitor },
   { name: 'Content', href: '/content', icon: FolderOpen },
+  { name: 'Playlists', href: '/playlists', icon: ListVideo },
   { name: 'Schedules', href: '/schedules', icon: Calendar },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
