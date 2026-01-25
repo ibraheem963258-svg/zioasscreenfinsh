@@ -1,45 +1,92 @@
+import { useEffect, useState } from 'react';
 import { Monitor, Building2, Layers, FolderOpen, Calendar, Wifi, WifiOff } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { ScreenStatusList } from '@/components/dashboard/ScreenStatusList';
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { RecentActivity } from '@/components/dashboard/RecentActivity';
-import { mockStats, mockScreens, mockBranches } from '@/lib/mock-data';
+import { getDashboardStats, getScreens, getBranches } from '@/lib/api';
+import { DashboardStats, Screen, Branch } from '@/lib/types';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function Dashboard() {
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [screens, setScreens] = useState<Screen[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [statsData, screensData, branchesData] = await Promise.all([
+          getDashboardStats(),
+          getScreens(),
+          getBranches(),
+        ]);
+        setStats(statsData);
+        setScreens(screensData);
+        setBranches(branchesData);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <div>
+            <Skeleton className="h-9 w-48" />
+            <Skeleton className="h-5 w-96 mt-2" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[...Array(4)].map((_, i) => (
+              <Skeleton key={i} className="h-32" />
+            ))}
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
       <div className="space-y-6 animate-fade-in">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
+          <h1 className="text-3xl font-bold text-foreground">لوحة التحكم</h1>
           <p className="text-muted-foreground mt-1">
-            Welcome back! Here's an overview of your digital signage network.
+            مرحباً بك! إليك نظرة عامة على شبكة اللافتات الرقمية الخاصة بك.
           </p>
         </div>
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
-            title="Total Screens"
-            value={mockStats.totalScreens}
+            title="إجمالي الشاشات"
+            value={stats?.totalScreens || 0}
             icon={<Monitor className="h-6 w-6" />}
           />
           <StatCard
-            title="Online Screens"
-            value={mockStats.onlineScreens}
+            title="شاشات متصلة"
+            value={stats?.onlineScreens || 0}
             icon={<Wifi className="h-6 w-6" />}
             variant="success"
           />
           <StatCard
-            title="Offline Screens"
-            value={mockStats.offlineScreens}
+            title="شاشات غير متصلة"
+            value={stats?.offlineScreens || 0}
             icon={<WifiOff className="h-6 w-6" />}
             variant="danger"
           />
           <StatCard
-            title="Active Schedules"
-            value={mockStats.activeSchedules}
+            title="جداول نشطة"
+            value={stats?.activeSchedules || 0}
             icon={<Calendar className="h-6 w-6" />}
           />
         </div>
@@ -47,18 +94,18 @@ export default function Dashboard() {
         {/* Secondary Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <StatCard
-            title="Branches"
-            value={mockStats.totalBranches}
+            title="الفروع"
+            value={stats?.totalBranches || 0}
             icon={<Building2 className="h-6 w-6" />}
           />
           <StatCard
-            title="Screen Groups"
-            value={mockStats.totalGroups}
+            title="مجموعات الشاشات"
+            value={stats?.totalGroups || 0}
             icon={<Layers className="h-6 w-6" />}
           />
           <StatCard
-            title="Content Items"
-            value={mockStats.totalContent}
+            title="عناصر المحتوى"
+            value={stats?.totalContent || 0}
             icon={<FolderOpen className="h-6 w-6" />}
           />
         </div>
@@ -66,7 +113,7 @@ export default function Dashboard() {
         {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
-            <ScreenStatusList screens={mockScreens} branches={mockBranches} />
+            <ScreenStatusList screens={screens} branches={branches} />
           </div>
           <div className="space-y-6">
             <QuickActions />

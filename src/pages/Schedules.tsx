@@ -1,23 +1,24 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Calendar,
   Plus,
   Search,
   Clock,
   MoreVertical,
-  Edit2,
   Trash2,
   Play,
   Pause,
   Monitor,
   Layers,
-  Building2
+  Building2,
+  Loader2
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,32 +42,88 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { mockSchedules, mockContent, mockScreens, mockGroups, mockBranches } from '@/lib/mock-data';
-import { Schedule } from '@/lib/types';
-import { format } from 'date-fns';
+import { 
+  getSchedules, 
+  createSchedule, 
+  toggleSchedule, 
+  deleteSchedule,
+  getContent,
+  getScreens,
+  getScreenGroups,
+  getBranches
+} from '@/lib/api';
+import { Schedule, ContentItem, Screen, ScreenGroup, Branch } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 export default function Schedules() {
-  const [schedules, setSchedules] = useState<Schedule[]>(mockSchedules);
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [content, setContent] = useState<ContentItem[]>([]);
+  const [screens, setScreens] = useState<Screen[]>([]);
+  const [groups, setGroups] = useState<ScreenGroup[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // Form states
+  const [newScheduleName, setNewScheduleName] = useState('');
+  const [newScheduleContent, setNewScheduleContent] = useState('');
+  const [newScheduleTargetType, setNewScheduleTargetType] = useState<'screen' | 'group' | 'branch'>('screen');
+  const [newScheduleTargetId, setNewScheduleTargetId] = useState('');
+  const [newScheduleStartDate, setNewScheduleStartDate] = useState('');
+  const [newScheduleEndDate, setNewScheduleEndDate] = useState('');
+  const [newScheduleStartTime, setNewScheduleStartTime] = useState('09:00');
+  const [newScheduleEndTime, setNewScheduleEndTime] = useState('17:00');
+  const [newSchedulePriority, setNewSchedulePriority] = useState('5');
+
   const { toast } = useToast();
 
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      const [schedulesData, contentData, screensData, groupsData, branchesData] = await Promise.all([
+        getSchedules(),
+        getContent(),
+        getScreens(),
+        getScreenGroups(),
+        getBranches(),
+      ]);
+      setSchedules(schedulesData);
+      setContent(contentData);
+      setScreens(screensData);
+      setGroups(groupsData);
+      setBranches(branchesData);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      toast({
+        title: 'خطأ',
+        description: 'فشل في جلب البيانات',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const getContentName = (contentId: string) => {
-    return mockContent.find(c => c.id === contentId)?.name || 'Unknown';
+    return content.find(c => c.id === contentId)?.name || 'غير معروف';
   };
 
   const getTargetName = (targetType: string, targetId: string) => {
     switch (targetType) {
       case 'screen':
-        return mockScreens.find(s => s.id === targetId)?.name || 'Unknown Screen';
+        return screens.find(s => s.id === targetId)?.name || 'شاشة غير معروفة';
       case 'group':
-        return mockGroups.find(g => g.id === targetId)?.name || 'Unknown Group';
+        return groups.find(g => g.id === targetId)?.name || 'مجموعة غير معروفة';
       case 'branch':
-        return mockBranches.find(b => b.id === targetId)?.name || 'Unknown Branch';
+        return branches.find(b => b.id === targetId)?.name || 'فرع غير معروف';
       default:
-        return 'Unknown';
+        return 'غير معروف';
     }
   };
 
@@ -83,27 +140,126 @@ export default function Schedules() {
     }
   };
 
+  const getTargetOptions = () => {
+    switch (newScheduleTargetType) {
+      case 'screen':
+        return screens.map(s => ({ id: s.id, name: s.name }));
+      case 'group':
+        return groups.map(g => ({ id: g.id, name: g.name }));
+      case 'branch':
+        return branches.map(b => ({ id: b.id, name: b.name }));
+      default:
+        return [];
+    }
+  };
+
   const filteredSchedules = schedules.filter(schedule =>
     schedule.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleToggle = (scheduleId: string) => {
-    setSchedules(prev => prev.map(s => 
-      s.id === scheduleId ? { ...s, isActive: !s.isActive } : s
-    ));
-    toast({
-      title: 'Schedule updated',
-      description: 'Schedule status has been changed.',
-    });
+  const handleToggle = async (scheduleId: string, currentStatus: boolean) => {
+    try {
+      await toggleSchedule(scheduleId, !currentStatus);
+      setSchedules(prev => prev.map(s => 
+        s.id === scheduleId ? { ...s, isActive: !currentStatus } : s
+      ));
+      toast({
+        title: 'تم التحديث',
+        description: 'تم تغيير حالة الجدول.',
+      });
+    } catch (error) {
+      toast({
+        title: 'خطأ',
+        description: 'فشل في تحديث الجدول.',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const handleDelete = (scheduleId: string) => {
-    setSchedules(prev => prev.filter(s => s.id !== scheduleId));
-    toast({
-      title: 'Schedule deleted',
-      description: 'The schedule has been removed.',
-    });
+  const handleDelete = async (scheduleId: string) => {
+    try {
+      await deleteSchedule(scheduleId);
+      setSchedules(prev => prev.filter(s => s.id !== scheduleId));
+      toast({
+        title: 'تم الحذف',
+        description: 'تم حذف الجدول.',
+      });
+    } catch (error) {
+      toast({
+        title: 'خطأ',
+        description: 'فشل في حذف الجدول.',
+        variant: 'destructive',
+      });
+    }
   };
+
+  const handleCreateSchedule = async () => {
+    if (!newScheduleName || !newScheduleContent || !newScheduleTargetId || !newScheduleStartDate || !newScheduleEndDate) {
+      toast({
+        title: 'خطأ',
+        description: 'الرجاء ملء جميع الحقول المطلوبة.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const newSchedule = await createSchedule(
+        newScheduleName,
+        newScheduleContent,
+        newScheduleTargetType,
+        newScheduleTargetId,
+        newScheduleStartDate,
+        newScheduleEndDate,
+        newScheduleStartTime,
+        newScheduleEndTime,
+        parseInt(newSchedulePriority)
+      );
+      setSchedules(prev => [newSchedule, ...prev]);
+      setIsAddOpen(false);
+      resetForm();
+      toast({
+        title: 'تم الإنشاء',
+        description: 'تم إنشاء الجدول بنجاح.',
+      });
+    } catch (error) {
+      toast({
+        title: 'خطأ',
+        description: 'فشل في إنشاء الجدول.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const resetForm = () => {
+    setNewScheduleName('');
+    setNewScheduleContent('');
+    setNewScheduleTargetType('screen');
+    setNewScheduleTargetId('');
+    setNewScheduleStartDate('');
+    setNewScheduleEndDate('');
+    setNewScheduleStartTime('09:00');
+    setNewScheduleEndTime('17:00');
+    setNewSchedulePriority('5');
+  };
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <Skeleton className="h-9 w-48" />
+          <div className="space-y-4">
+            {[...Array(4)].map((_, i) => (
+              <Skeleton key={i} className="h-24" />
+            ))}
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -111,40 +267,44 @@ export default function Schedules() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Schedules</h1>
+            <h1 className="text-3xl font-bold text-foreground">الجداول</h1>
             <p className="text-muted-foreground mt-1">
-              Create and manage content schedules for your screens
+              إنشاء وإدارة جداول عرض المحتوى
             </p>
           </div>
           <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
-                Create Schedule
+                إنشاء جدول
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-lg">
               <DialogHeader>
-                <DialogTitle>Create New Schedule</DialogTitle>
+                <DialogTitle>إنشاء جدول جديد</DialogTitle>
                 <DialogDescription>
-                  Schedule content to display at specific times.
+                  جدولة عرض المحتوى في أوقات محددة.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label>Schedule Name</Label>
-                  <Input placeholder="e.g., Morning Breakfast Menu" />
+                  <Label>اسم الجدول</Label>
+                  <Input 
+                    placeholder="مثال: قائمة الإفطار الصباحي" 
+                    value={newScheduleName}
+                    onChange={(e) => setNewScheduleName(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label>Content</Label>
-                  <Select>
+                  <Label>المحتوى</Label>
+                  <Select value={newScheduleContent} onValueChange={setNewScheduleContent}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select content" />
+                      <SelectValue placeholder="اختر المحتوى" />
                     </SelectTrigger>
                     <SelectContent>
-                      {mockContent.map(content => (
-                        <SelectItem key={content.id} value={content.id}>
-                          {content.name}
+                      {content.map(c => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -152,28 +312,31 @@ export default function Schedules() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Target Type</Label>
-                    <Select>
+                    <Label>نوع الهدف</Label>
+                    <Select value={newScheduleTargetType} onValueChange={(v) => {
+                      setNewScheduleTargetType(v as 'screen' | 'group' | 'branch');
+                      setNewScheduleTargetId('');
+                    }}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select type" />
+                        <SelectValue placeholder="اختر النوع" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="screen">Single Screen</SelectItem>
-                        <SelectItem value="group">Screen Group</SelectItem>
-                        <SelectItem value="branch">Branch</SelectItem>
+                        <SelectItem value="screen">شاشة واحدة</SelectItem>
+                        <SelectItem value="group">مجموعة شاشات</SelectItem>
+                        <SelectItem value="branch">فرع</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Target</Label>
-                    <Select>
+                    <Label>الهدف</Label>
+                    <Select value={newScheduleTargetId} onValueChange={setNewScheduleTargetId}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select target" />
+                        <SelectValue placeholder="اختر الهدف" />
                       </SelectTrigger>
                       <SelectContent>
-                        {mockScreens.map(screen => (
-                          <SelectItem key={screen.id} value={screen.id}>
-                            {screen.name}
+                        {getTargetOptions().map(option => (
+                          <SelectItem key={option.id} value={option.id}>
+                            {option.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -182,37 +345,57 @@ export default function Schedules() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Start Date</Label>
-                    <Input type="date" />
+                    <Label>تاريخ البدء</Label>
+                    <Input 
+                      type="date" 
+                      value={newScheduleStartDate}
+                      onChange={(e) => setNewScheduleStartDate(e.target.value)}
+                    />
                   </div>
                   <div className="space-y-2">
-                    <Label>End Date</Label>
-                    <Input type="date" />
+                    <Label>تاريخ الانتهاء</Label>
+                    <Input 
+                      type="date" 
+                      value={newScheduleEndDate}
+                      onChange={(e) => setNewScheduleEndDate(e.target.value)}
+                    />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Start Time</Label>
-                    <Input type="time" defaultValue="09:00" />
+                    <Label>وقت البدء</Label>
+                    <Input 
+                      type="time" 
+                      value={newScheduleStartTime}
+                      onChange={(e) => setNewScheduleStartTime(e.target.value)}
+                    />
                   </div>
                   <div className="space-y-2">
-                    <Label>End Time</Label>
-                    <Input type="time" defaultValue="17:00" />
+                    <Label>وقت الانتهاء</Label>
+                    <Input 
+                      type="time" 
+                      value={newScheduleEndTime}
+                      onChange={(e) => setNewScheduleEndTime(e.target.value)}
+                    />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Priority (1-10)</Label>
-                  <Input type="number" min={1} max={10} defaultValue={5} />
+                  <Label>الأولوية (1-10)</Label>
+                  <Input 
+                    type="number" 
+                    min={1} 
+                    max={10} 
+                    value={newSchedulePriority}
+                    onChange={(e) => setNewSchedulePriority(e.target.value)}
+                  />
                   <p className="text-xs text-muted-foreground">
-                    Higher priority schedules override lower ones during overlapping times.
+                    الجداول ذات الأولوية الأعلى تتجاوز الأولويات الأقل.
                   </p>
                 </div>
               </div>
-              <Button className="w-full" onClick={() => {
-                setIsAddOpen(false);
-                toast({ title: 'Schedule created', description: 'Your new schedule has been created.' });
-              }}>
-                Create Schedule
+              <Button className="w-full" onClick={handleCreateSchedule} disabled={isSaving}>
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                إنشاء الجدول
               </Button>
             </DialogContent>
           </Dialog>
@@ -222,7 +405,7 @@ export default function Schedules() {
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search schedules..."
+            placeholder="بحث في الجداول..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -237,7 +420,7 @@ export default function Schedules() {
             </div>
             <div>
               <p className="text-2xl font-bold text-foreground">{schedules.length}</p>
-              <p className="text-sm text-muted-foreground">Total Schedules</p>
+              <p className="text-sm text-muted-foreground">إجمالي الجداول</p>
             </div>
           </div>
           <div className="stat-card flex items-center gap-4">
@@ -248,7 +431,7 @@ export default function Schedules() {
               <p className="text-2xl font-bold text-foreground">
                 {schedules.filter(s => s.isActive).length}
               </p>
-              <p className="text-sm text-muted-foreground">Active</p>
+              <p className="text-sm text-muted-foreground">نشط</p>
             </div>
           </div>
           <div className="stat-card flex items-center gap-4">
@@ -259,107 +442,102 @@ export default function Schedules() {
               <p className="text-2xl font-bold text-foreground">
                 {schedules.filter(s => !s.isActive).length}
               </p>
-              <p className="text-sm text-muted-foreground">Paused</p>
+              <p className="text-sm text-muted-foreground">متوقف</p>
             </div>
           </div>
         </div>
 
         {/* Schedules List */}
-        <div className="space-y-4">
-          {filteredSchedules.map((schedule) => {
-            const TargetIcon = getTargetIcon(schedule.targetType);
-            
-            return (
-              <div
-                key={schedule.id}
-                className={cn(
-                  "stat-card flex flex-col sm:flex-row sm:items-center gap-4",
-                  !schedule.isActive && "opacity-60"
-                )}
-              >
-                <div className="flex items-center gap-4 flex-1">
-                  <div className={cn(
-                    "flex h-12 w-12 items-center justify-center rounded-lg",
-                    schedule.isActive ? "bg-success/20" : "bg-muted"
-                  )}>
-                    <Calendar className={cn(
-                      "h-6 w-6",
-                      schedule.isActive ? "text-success" : "text-muted-foreground"
-                    )} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-foreground">{schedule.name}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Content: {getContentName(schedule.contentId)}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-4 sm:gap-6">
-                  <div className="flex items-center gap-2">
-                    <TargetIcon className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-foreground">
-                      {getTargetName(schedule.targetType, schedule.targetId)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">
-                      {schedule.startTime} - {schedule.endTime}
-                    </span>
-                  </div>
-
-                  <Badge variant="secondary">
-                    Priority: {schedule.priority}
-                  </Badge>
-
-                  <Badge 
-                    variant={schedule.isActive ? "default" : "secondary"}
-                    className={schedule.isActive ? "bg-success/20 text-success border-success/30" : ""}
-                  >
-                    {schedule.isActive ? "Active" : "Paused"}
-                  </Badge>
-
-                  <Switch
-                    checked={schedule.isActive}
-                    onCheckedChange={() => handleToggle(schedule.id)}
-                  />
-
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem>
-                        <Edit2 className="h-4 w-4 mr-2" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem 
-                        className="text-destructive"
-                        onClick={() => handleDelete(schedule.id)}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {filteredSchedules.length === 0 && (
-          <div className="text-center py-12">
+        {filteredSchedules.length === 0 ? (
+          <div className="text-center py-12 stat-card">
             <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-foreground">No schedules found</h3>
+            <h3 className="text-lg font-semibold text-foreground">لا توجد جداول</h3>
             <p className="text-muted-foreground mt-1">
-              Create your first schedule to get started.
+              أنشئ أول جدول للبدء.
             </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredSchedules.map((schedule) => {
+              const TargetIcon = getTargetIcon(schedule.targetType);
+              
+              return (
+                <div
+                  key={schedule.id}
+                  className={cn(
+                    "stat-card flex flex-col sm:flex-row sm:items-center gap-4",
+                    !schedule.isActive && "opacity-60"
+                  )}
+                >
+                  <div className="flex items-center gap-4 flex-1">
+                    <div className={cn(
+                      "flex h-12 w-12 items-center justify-center rounded-lg",
+                      schedule.isActive ? "bg-success/20" : "bg-muted"
+                    )}>
+                      <Calendar className={cn(
+                        "h-6 w-6",
+                        schedule.isActive ? "text-success" : "text-muted-foreground"
+                      )} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-foreground">{schedule.name}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        المحتوى: {getContentName(schedule.contentId)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+                    <div className="flex items-center gap-2">
+                      <TargetIcon className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-foreground">
+                        {getTargetName(schedule.targetType, schedule.targetId)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">
+                        {schedule.startTime} - {schedule.endTime}
+                      </span>
+                    </div>
+
+                    <Badge variant="secondary">
+                      أولوية: {schedule.priority}
+                    </Badge>
+
+                    <Badge 
+                      variant={schedule.isActive ? "default" : "secondary"}
+                      className={schedule.isActive ? "bg-success/20 text-success border-success/30" : ""}
+                    >
+                      {schedule.isActive ? "نشط" : "متوقف"}
+                    </Badge>
+
+                    <Switch
+                      checked={schedule.isActive}
+                      onCheckedChange={() => handleToggle(schedule.id, schedule.isActive)}
+                    />
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem 
+                          className="text-destructive"
+                          onClick={() => handleDelete(schedule.id)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          حذف
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

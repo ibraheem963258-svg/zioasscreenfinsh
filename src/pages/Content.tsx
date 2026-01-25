@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Upload,
   Image,
@@ -7,17 +7,17 @@ import {
   Filter,
   MoreVertical,
   Eye,
-  Edit2,
   Trash2,
   Link,
-  Download,
   Clock,
-  HardDrive
+  HardDrive,
+  Loader2
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,11 +41,19 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { mockContent, mockScreens, mockGroups, mockBranches } from '@/lib/mock-data';
-import { ContentItem } from '@/lib/types';
+import { 
+  getContent, 
+  createContent, 
+  deleteContent, 
+  assignContent,
+  getScreens,
+  getScreenGroups,
+  getBranches
+} from '@/lib/api';
+import { ContentItem, Screen, ScreenGroup, Branch } from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
+import { ar } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return bytes + ' B';
@@ -54,13 +62,56 @@ function formatFileSize(bytes: number): string {
 }
 
 export default function Content() {
-  const [content, setContent] = useState<ContentItem[]>(mockContent);
+  const [content, setContent] = useState<ContentItem[]>([]);
+  const [screens, setScreens] = useState<Screen[]>([]);
+  const [groups, setGroups] = useState<ScreenGroup[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [selectedContent, setSelectedContent] = useState<ContentItem | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // Form states
+  const [newContentName, setNewContentName] = useState('');
+  const [newContentUrl, setNewContentUrl] = useState('');
+  const [newContentType, setNewContentType] = useState<'image' | 'video'>('image');
+  const [newContentDuration, setNewContentDuration] = useState('10');
+  
+  const [assignTargetType, setAssignTargetType] = useState<'screen' | 'group' | 'branch'>('screen');
+  const [assignTargetId, setAssignTargetId] = useState('');
+  
   const { toast } = useToast();
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      const [contentData, screensData, groupsData, branchesData] = await Promise.all([
+        getContent(),
+        getScreens(),
+        getScreenGroups(),
+        getBranches(),
+      ]);
+      setContent(contentData);
+      setScreens(screensData);
+      setGroups(groupsData);
+      setBranches(branchesData);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      toast({
+        title: 'خطأ',
+        description: 'فشل في جلب البيانات',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const filteredContent = content.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -68,12 +119,21 @@ export default function Content() {
     return matchesSearch && matchesType;
   });
 
-  const handleDelete = (contentId: string) => {
-    setContent(prev => prev.filter(c => c.id !== contentId));
-    toast({
-      title: 'Content deleted',
-      description: 'The content has been removed successfully.',
-    });
+  const handleDelete = async (contentId: string) => {
+    try {
+      await deleteContent(contentId);
+      setContent(prev => prev.filter(c => c.id !== contentId));
+      toast({
+        title: 'تم الحذف',
+        description: 'تم حذف المحتوى بنجاح.',
+      });
+    } catch (error) {
+      toast({
+        title: 'خطأ',
+        description: 'فشل في حذف المحتوى.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleAssign = (contentItem: ContentItem) => {
@@ -81,55 +141,172 @@ export default function Content() {
     setIsAssignOpen(true);
   };
 
+  const handleCreateContent = async () => {
+    if (!newContentName || !newContentUrl) {
+      toast({
+        title: 'خطأ',
+        description: 'الرجاء ملء جميع الحقول المطلوبة.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const newContent = await createContent(
+        newContentName,
+        newContentType,
+        newContentUrl,
+        newContentUrl,
+        parseInt(newContentDuration),
+        0
+      );
+      setContent(prev => [newContent, ...prev]);
+      setIsUploadOpen(false);
+      setNewContentName('');
+      setNewContentUrl('');
+      setNewContentType('image');
+      setNewContentDuration('10');
+      toast({
+        title: 'تم الإنشاء',
+        description: 'تم إضافة المحتوى بنجاح.',
+      });
+    } catch (error) {
+      toast({
+        title: 'خطأ',
+        description: 'فشل في إنشاء المحتوى.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleAssignContent = async () => {
+    if (!selectedContent || !assignTargetId) {
+      toast({
+        title: 'خطأ',
+        description: 'الرجاء اختيار الهدف.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await assignContent(selectedContent.id, assignTargetType, assignTargetId);
+      setIsAssignOpen(false);
+      setAssignTargetId('');
+      toast({
+        title: 'تم التعيين',
+        description: 'تم تعيين المحتوى بنجاح.',
+      });
+    } catch (error) {
+      toast({
+        title: 'خطأ',
+        description: 'فشل في تعيين المحتوى.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const getTargetOptions = () => {
+    switch (assignTargetType) {
+      case 'screen':
+        return screens.map(s => ({ id: s.id, name: s.name }));
+      case 'group':
+        return groups.map(g => ({ id: g.id, name: g.name }));
+      case 'branch':
+        return branches.map(b => ({ id: b.id, name: b.name }));
+      default:
+        return [];
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <Skeleton className="h-9 w-48" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {[...Array(8)].map((_, i) => (
+              <Skeleton key={i} className="h-64" />
+            ))}
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
       <div className="space-y-6 animate-fade-in">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Content Library</h1>
+            <h1 className="text-3xl font-bold text-foreground">مكتبة المحتوى</h1>
             <p className="text-muted-foreground mt-1">
-              Upload and manage your digital signage content
+              إدارة محتوى اللافتات الرقمية
             </p>
           </div>
           <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
             <DialogTrigger asChild>
               <Button>
                 <Upload className="h-4 w-4 mr-2" />
-                Upload Content
+                إضافة محتوى
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Upload Content</DialogTitle>
+                <DialogTitle>إضافة محتوى جديد</DialogTitle>
                 <DialogDescription>
-                  Add new images or videos to your content library.
+                  أضف صوراً أو فيديوهات جديدة لمكتبة المحتوى.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
-                <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer">
-                  <Upload className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-sm text-muted-foreground">
-                    Drag and drop files here, or click to browse
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Supports: JPG, PNG, MP4, WebM (Max 100MB)
-                  </p>
+                <div className="space-y-2">
+                  <Label>اسم المحتوى</Label>
+                  <Input 
+                    placeholder="مثال: إعلان الصيف" 
+                    value={newContentName}
+                    onChange={(e) => setNewContentName(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label>Content Name</Label>
-                  <Input placeholder="e.g., Summer Promo Banner" />
+                  <Label>نوع المحتوى</Label>
+                  <Select value={newContentType} onValueChange={(v) => setNewContentType(v as 'image' | 'video')}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="image">صورة</SelectItem>
+                      <SelectItem value="video">فيديو</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Display Duration (seconds)</Label>
-                  <Input type="number" placeholder="10" defaultValue={10} />
+                  <Label>رابط المحتوى (URL)</Label>
+                  <Input 
+                    placeholder="https://example.com/image.jpg" 
+                    value={newContentUrl}
+                    onChange={(e) => setNewContentUrl(e.target.value)}
+                    dir="ltr"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>مدة العرض (ثواني)</Label>
+                  <Input 
+                    type="number" 
+                    value={newContentDuration}
+                    onChange={(e) => setNewContentDuration(e.target.value)}
+                  />
                 </div>
               </div>
-              <Button className="w-full" onClick={() => {
-                setIsUploadOpen(false);
-                toast({ title: 'Content uploaded', description: 'Your content has been added to the library.' });
-              }}>
-                Upload
+              <Button className="w-full" onClick={handleCreateContent} disabled={isSaving}>
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                إضافة المحتوى
               </Button>
             </DialogContent>
           </Dialog>
@@ -140,7 +317,7 @@ export default function Content() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search content..."
+              placeholder="بحث في المحتوى..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -149,12 +326,12 @@ export default function Content() {
           <Select value={filterType} onValueChange={setFilterType}>
             <SelectTrigger className="w-[160px]">
               <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="All Types" />
+              <SelectValue placeholder="جميع الأنواع" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="image">Images</SelectItem>
-              <SelectItem value="video">Videos</SelectItem>
+              <SelectItem value="all">جميع الأنواع</SelectItem>
+              <SelectItem value="image">صور</SelectItem>
+              <SelectItem value="video">فيديوهات</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -169,7 +346,7 @@ export default function Content() {
               <p className="text-2xl font-bold text-foreground">
                 {content.filter(c => c.type === 'image').length}
               </p>
-              <p className="text-sm text-muted-foreground">Images</p>
+              <p className="text-sm text-muted-foreground">صور</p>
             </div>
           </div>
           <div className="stat-card flex items-center gap-4">
@@ -180,7 +357,7 @@ export default function Content() {
               <p className="text-2xl font-bold text-foreground">
                 {content.filter(c => c.type === 'video').length}
               </p>
-              <p className="text-sm text-muted-foreground">Videos</p>
+              <p className="text-sm text-muted-foreground">فيديوهات</p>
             </div>
           </div>
           <div className="stat-card flex items-center gap-4">
@@ -191,144 +368,139 @@ export default function Content() {
               <p className="text-2xl font-bold text-foreground">
                 {formatFileSize(content.reduce((acc, c) => acc + c.fileSize, 0))}
               </p>
-              <p className="text-sm text-muted-foreground">Total Size</p>
+              <p className="text-sm text-muted-foreground">الحجم الإجمالي</p>
             </div>
           </div>
         </div>
 
         {/* Content Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredContent.map((item) => (
-            <div
-              key={item.id}
-              className="stat-card group overflow-hidden"
-            >
-              {/* Thumbnail */}
-              <div className="relative aspect-video rounded-lg overflow-hidden mb-4 bg-secondary">
-                <img
-                  src={item.thumbnailUrl}
-                  alt={item.name}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute top-2 left-2">
-                  <Badge variant="secondary" className="bg-background/80 backdrop-blur">
-                    {item.type === 'image' ? (
-                      <Image className="h-3 w-3 mr-1" />
-                    ) : (
-                      <Video className="h-3 w-3 mr-1" />
-                    )}
-                    {item.type}
-                  </Badge>
-                </div>
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <Button variant="secondary" size="sm" className="mr-2">
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              {/* Info */}
-              <div className="space-y-3">
-                <div className="flex items-start justify-between">
-                  <h3 className="font-semibold text-foreground truncate flex-1">{item.name}</h3>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem>
-                        <Eye className="h-4 w-4 mr-2" />
-                        Preview
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleAssign(item)}>
-                        <Link className="h-4 w-4 mr-2" />
-                        Assign to Screen
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <Download className="h-4 w-4 mr-2" />
-                        Download
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <Edit2 className="h-4 w-4 mr-2" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem 
-                        className="text-destructive"
-                        onClick={() => handleDelete(item.id)}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    {item.duration}s
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <HardDrive className="h-3 w-3" />
-                    {formatFileSize(item.fileSize)}
+        {filteredContent.length === 0 ? (
+          <div className="text-center py-12 stat-card">
+            <Image className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-foreground">لا يوجد محتوى</h3>
+            <p className="text-muted-foreground mt-1">
+              أضف أول محتوى للبدء.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filteredContent.map((item) => (
+              <div key={item.id} className="stat-card group overflow-hidden">
+                {/* Thumbnail */}
+                <div className="relative aspect-video rounded-lg overflow-hidden mb-4 bg-secondary">
+                  <img
+                    src={item.thumbnailUrl}
+                    alt={item.name}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute top-2 left-2">
+                    <Badge variant="secondary" className="bg-background/80 backdrop-blur">
+                      {item.type === 'image' ? (
+                        <Image className="h-3 w-3 mr-1" />
+                      ) : (
+                        <Video className="h-3 w-3 mr-1" />
+                      )}
+                      {item.type === 'image' ? 'صورة' : 'فيديو'}
+                    </Badge>
                   </div>
                 </div>
 
-                <p className="text-xs text-muted-foreground">
-                  Uploaded {formatDistanceToNow(item.uploadedAt, { addSuffix: true })}
-                </p>
+                {/* Info */}
+                <div className="space-y-3">
+                  <div className="flex items-start justify-between">
+                    <h3 className="font-semibold text-foreground truncate flex-1">{item.name}</h3>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem>
+                          <Eye className="h-4 w-4 mr-2" />
+                          معاينة
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleAssign(item)}>
+                          <Link className="h-4 w-4 mr-2" />
+                          تعيين لشاشة
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          className="text-destructive"
+                          onClick={() => handleDelete(item.id)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          حذف
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {item.duration} ثانية
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <HardDrive className="h-3 w-3" />
+                      {formatFileSize(item.fileSize)}
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">
+                    تم الرفع {formatDistanceToNow(item.uploadedAt, { addSuffix: true, locale: ar })}
+                  </p>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
         {/* Assign Dialog */}
         <Dialog open={isAssignOpen} onOpenChange={setIsAssignOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Assign Content</DialogTitle>
+              <DialogTitle>تعيين المحتوى</DialogTitle>
               <DialogDescription>
-                Assign "{selectedContent?.name}" to screens, groups, or branches.
+                تعيين "{selectedContent?.name}" للشاشات أو المجموعات أو الفروع.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label>Assign To</Label>
-                <Select>
+                <Label>تعيين إلى</Label>
+                <Select value={assignTargetType} onValueChange={(v) => {
+                  setAssignTargetType(v as 'screen' | 'group' | 'branch');
+                  setAssignTargetId('');
+                }}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select target type" />
+                    <SelectValue placeholder="اختر نوع الهدف" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="screen">Single Screen</SelectItem>
-                    <SelectItem value="group">Screen Group</SelectItem>
-                    <SelectItem value="branch">All Screens in Branch</SelectItem>
+                    <SelectItem value="screen">شاشة واحدة</SelectItem>
+                    <SelectItem value="group">مجموعة شاشات</SelectItem>
+                    <SelectItem value="branch">جميع شاشات الفرع</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Select Target</Label>
-                <Select>
+                <Label>اختر الهدف</Label>
+                <Select value={assignTargetId} onValueChange={setAssignTargetId}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Choose..." />
+                    <SelectValue placeholder="اختر..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockScreens.map(screen => (
-                      <SelectItem key={screen.id} value={screen.id}>
-                        {screen.name}
+                    {getTargetOptions().map(option => (
+                      <SelectItem key={option.id} value={option.id}>
+                        {option.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
-            <Button className="w-full" onClick={() => {
-              setIsAssignOpen(false);
-              toast({ title: 'Content assigned', description: 'Content has been assigned successfully.' });
-            }}>
-              Assign Content
+            <Button className="w-full" onClick={handleAssignContent} disabled={isSaving}>
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              تعيين المحتوى
             </Button>
           </DialogContent>
         </Dialog>

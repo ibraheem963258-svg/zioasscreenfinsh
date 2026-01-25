@@ -1,42 +1,75 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { mockScreens, mockContent } from '@/lib/mock-data';
-import { ContentItem } from '@/lib/types';
+import { getScreenContent, updateScreenStatus } from '@/lib/api';
+import { Screen, ContentItem } from '@/lib/types';
 
 export default function Display() {
   const { slug } = useParams<{ slug: string }>();
+  const [screen, setScreen] = useState<Screen | null>(null);
+  const [content, setContent] = useState<ContentItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Find the screen by slug
-  const screen = mockScreens.find(s => s.slug === slug);
-  
-  // Get content for this screen
-  const screenContent: ContentItem[] = screen 
-    ? screen.contentIds.map(id => mockContent.find(c => c.id === id)).filter(Boolean) as ContentItem[]
-    : [];
+  // Fetch screen and content
+  useEffect(() => {
+    const fetchContent = async () => {
+      if (!slug) return;
+      
+      try {
+        const { screen: screenData, content: contentData } = await getScreenContent(slug);
+        setScreen(screenData);
+        setContent(contentData);
+        
+        // Update screen status to online
+        if (screenData) {
+          await updateScreenStatus(screenData.id, 'online');
+        }
+      } catch (err) {
+        console.error('Error fetching content:', err);
+        setError('Failed to load content');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchContent();
+
+    // Set up heartbeat to keep screen status online
+    const heartbeatInterval = setInterval(async () => {
+      if (screen) {
+        try {
+          await updateScreenStatus(screen.id, 'online');
+        } catch (err) {
+          console.error('Heartbeat failed:', err);
+        }
+      }
+    }, 30000); // Every 30 seconds
+
+    return () => clearInterval(heartbeatInterval);
+  }, [slug]);
 
   const nextSlide = useCallback(() => {
-    if (screenContent.length <= 1) return;
+    if (content.length <= 1) return;
     
     setIsTransitioning(true);
     setTimeout(() => {
-      setCurrentIndex(prev => (prev + 1) % screenContent.length);
+      setCurrentIndex(prev => (prev + 1) % content.length);
       setIsTransitioning(false);
     }, 1000);
-  }, [screenContent.length]);
+  }, [content.length]);
 
   // Auto-advance slides
   useEffect(() => {
-    if (screenContent.length === 0) return;
+    if (content.length === 0) return;
     
-    const currentContent = screenContent[currentIndex];
+    const currentContent = content[currentIndex];
     const duration = (currentContent?.duration || 10) * 1000;
     
     const timer = setTimeout(nextSlide, duration);
     return () => clearTimeout(timer);
-  }, [currentIndex, screenContent, nextSlide]);
+  }, [currentIndex, content, nextSlide]);
 
   // Auto-refresh every 5 minutes to get latest content
   useEffect(() => {
@@ -55,28 +88,37 @@ export default function Display() {
           await document.documentElement.requestFullscreen();
         }
       } catch (e) {
-        // Fullscreen may be blocked by browser
         console.log('Fullscreen not available');
       }
     };
 
-    // Try to enter fullscreen after a short delay
     const timer = setTimeout(enterFullscreen, 1000);
     return () => clearTimeout(timer);
   }, []);
 
-  if (!screen) {
+  if (isLoading) {
     return (
-      <div className="display-fullscreen flex items-center justify-center">
+      <div className="display-fullscreen flex items-center justify-center bg-black">
         <div className="text-center text-white">
-          <h1 className="text-4xl font-bold mb-4">Screen Not Found</h1>
-          <p className="text-xl opacity-80">No screen found with slug: {slug}</p>
+          <div className="w-16 h-16 mx-auto mb-4 border-4 border-white/20 border-t-white rounded-full animate-spin" />
+          <p className="text-xl">جاري التحميل...</p>
         </div>
       </div>
     );
   }
 
-  if (screenContent.length === 0) {
+  if (!screen) {
+    return (
+      <div className="display-fullscreen flex items-center justify-center bg-gradient-to-br from-gray-900 to-black">
+        <div className="text-center text-white">
+          <h1 className="text-4xl font-bold mb-4">الشاشة غير موجودة</h1>
+          <p className="text-xl opacity-80">لم يتم العثور على شاشة بهذا المعرّف: {slug}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (content.length === 0) {
     return (
       <div className="display-fullscreen flex items-center justify-center bg-gradient-to-br from-gray-900 to-black">
         <div className="text-center text-white">
@@ -86,13 +128,13 @@ export default function Display() {
             </svg>
           </div>
           <h1 className="text-3xl font-bold mb-2">{screen.name}</h1>
-          <p className="text-lg opacity-60">No content assigned to this screen</p>
+          <p className="text-lg opacity-60">لا يوجد محتوى معين لهذه الشاشة</p>
         </div>
       </div>
     );
   }
 
-  const currentContent = screenContent[currentIndex];
+  const currentContent = content[currentIndex];
 
   return (
     <div className="display-fullscreen">
@@ -105,7 +147,7 @@ export default function Display() {
             src={currentContent.url}
             alt={currentContent.name}
             className="w-full h-full object-cover"
-            onError={() => setError('Failed to load image')}
+            onError={() => setError('فشل في تحميل الصورة')}
           />
         ) : (
           <video
@@ -115,15 +157,15 @@ export default function Display() {
             muted
             loop
             playsInline
-            onError={() => setError('Failed to load video')}
+            onError={() => setError('فشل في تحميل الفيديو')}
           />
         )}
       </div>
 
       {/* Progress indicators */}
-      {screenContent.length > 1 && (
+      {content.length > 1 && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-          {screenContent.map((_, idx) => (
+          {content.map((_, idx) => (
             <div
               key={idx}
               className={`h-1 rounded-full transition-all duration-300 ${
@@ -141,7 +183,7 @@ export default function Display() {
         <div className="absolute inset-0 flex items-center justify-center bg-black/80">
           <div className="text-center text-white">
             <p className="text-xl">{error}</p>
-            <p className="text-sm opacity-60 mt-2">Attempting to reload...</p>
+            <p className="text-sm opacity-60 mt-2">جاري إعادة المحاولة...</p>
           </div>
         </div>
       )}
