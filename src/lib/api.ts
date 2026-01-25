@@ -237,12 +237,52 @@ export async function deleteContent(id: string): Promise<void> {
 export async function assignContent(
   contentId: string,
   targetType: 'screen' | 'group' | 'branch',
-  targetId: string
+  targetId: string,
+  displayOrder?: number
 ): Promise<void> {
   const { error } = await supabase
     .from('content_assignments')
-    .insert({ content_id: contentId, target_type: targetType, target_id: targetId });
+    .insert({ 
+      content_id: contentId, 
+      target_type: targetType, 
+      target_id: targetId,
+      display_order: displayOrder ?? 0
+    });
   
+  if (error) throw error;
+}
+
+export async function assignPlaylist(
+  items: { contentId: string; duration: number; order: number }[],
+  targetType: 'screen' | 'group' | 'branch',
+  targetIds: string[]
+): Promise<void> {
+  // First, clear existing assignments for these targets
+  for (const targetId of targetIds) {
+    await supabase
+      .from('content_assignments')
+      .delete()
+      .eq('target_type', targetType)
+      .eq('target_id', targetId);
+  }
+
+  // Then, create new assignments
+  const assignments = [];
+  for (const targetId of targetIds) {
+    for (const item of items) {
+      assignments.push({
+        content_id: item.contentId,
+        target_type: targetType,
+        target_id: targetId,
+        display_order: item.order,
+      });
+    }
+  }
+
+  const { error } = await supabase
+    .from('content_assignments')
+    .insert(assignments);
+
   if (error) throw error;
 }
 
