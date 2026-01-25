@@ -88,12 +88,36 @@ export default function Display() {
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
           schema: 'public',
           table: 'content_assignments',
         },
         () => {
-          // Refetch content when assignments change
+          // Refetch content when new assignments are added
+          refetchContent();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'content_assignments',
+        },
+        () => {
+          // Refetch content when assignments are deleted
+          refetchContent();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'content_assignments',
+        },
+        () => {
+          // Refetch content when assignments are updated
           refetchContent();
         }
       )
