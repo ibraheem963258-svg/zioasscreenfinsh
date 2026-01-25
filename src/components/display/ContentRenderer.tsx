@@ -72,28 +72,33 @@ export function ContentRenderer({
   }, [currentIndex, displayOrder, content, loadedIndexes]);
 
   const goToNext = useCallback(() => {
-    if (content.length <= 1 || !isPlaying) return;
-    
+    // IMPORTANT: displayOrder can be temporarily empty on the first render.
+    // Never modulo by 0 (it produces NaN and can lead to a black screen).
+    const orderLen = displayOrder.length || content.length;
+    if (orderLen <= 1 || !isPlaying) return;
+
     setIsTransitioning(true);
-    
+
     setTimeout(() => {
-      setCurrentIndex(prev => (prev + 1) % displayOrder.length);
+      setCurrentIndex(prev => (prev + 1) % orderLen);
       setIsTransitioning(false);
-      onContentChange?.((currentIndex + 1) % displayOrder.length);
+      onContentChange?.((currentIndex + 1) % orderLen);
     }, settings.transitionDuration);
   }, [content.length, displayOrder.length, settings.transitionDuration, isPlaying, currentIndex, onContentChange]);
 
   // Auto-advance slides
   useEffect(() => {
-    if (content.length === 0 || !isPlaying || displayOrder.length === 0) return;
-    
-    const contentIdx = displayOrder[currentIndex];
+    if (content.length === 0 || !isPlaying) return;
+
+    const order = displayOrder.length > 0 ? displayOrder : content.map((_, i) => i);
+    const safeIndex = ((currentIndex % order.length) + order.length) % order.length;
+    const contentIdx = order[safeIndex];
     const currentContent = content[contentIdx];
     if (!currentContent) return;
 
     // Use content-specific duration or fall back to settings
     const duration = (currentContent.duration || settings.slideDuration) * 1000;
-    
+
     const timer = setTimeout(goToNext, duration);
     return () => clearTimeout(timer);
   }, [currentIndex, content, displayOrder, settings.slideDuration, goToNext, isPlaying]);
