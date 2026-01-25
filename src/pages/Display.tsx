@@ -1,0 +1,150 @@
+import { useState, useEffect, useCallback } from 'react';
+import { useParams } from 'react-router-dom';
+import { mockScreens, mockContent } from '@/lib/mock-data';
+import { ContentItem } from '@/lib/types';
+
+export default function Display() {
+  const { slug } = useParams<{ slug: string }>();
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Find the screen by slug
+  const screen = mockScreens.find(s => s.slug === slug);
+  
+  // Get content for this screen
+  const screenContent: ContentItem[] = screen 
+    ? screen.contentIds.map(id => mockContent.find(c => c.id === id)).filter(Boolean) as ContentItem[]
+    : [];
+
+  const nextSlide = useCallback(() => {
+    if (screenContent.length <= 1) return;
+    
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setCurrentIndex(prev => (prev + 1) % screenContent.length);
+      setIsTransitioning(false);
+    }, 1000);
+  }, [screenContent.length]);
+
+  // Auto-advance slides
+  useEffect(() => {
+    if (screenContent.length === 0) return;
+    
+    const currentContent = screenContent[currentIndex];
+    const duration = (currentContent?.duration || 10) * 1000;
+    
+    const timer = setTimeout(nextSlide, duration);
+    return () => clearTimeout(timer);
+  }, [currentIndex, screenContent, nextSlide]);
+
+  // Auto-refresh every 5 minutes to get latest content
+  useEffect(() => {
+    const refreshInterval = setInterval(() => {
+      window.location.reload();
+    }, 5 * 60 * 1000);
+    
+    return () => clearInterval(refreshInterval);
+  }, []);
+
+  // Enter fullscreen on load
+  useEffect(() => {
+    const enterFullscreen = async () => {
+      try {
+        if (document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen();
+        }
+      } catch (e) {
+        // Fullscreen may be blocked by browser
+        console.log('Fullscreen not available');
+      }
+    };
+
+    // Try to enter fullscreen after a short delay
+    const timer = setTimeout(enterFullscreen, 1000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (!screen) {
+    return (
+      <div className="display-fullscreen flex items-center justify-center">
+        <div className="text-center text-white">
+          <h1 className="text-4xl font-bold mb-4">Screen Not Found</h1>
+          <p className="text-xl opacity-80">No screen found with slug: {slug}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (screenContent.length === 0) {
+    return (
+      <div className="display-fullscreen flex items-center justify-center bg-gradient-to-br from-gray-900 to-black">
+        <div className="text-center text-white">
+          <div className="w-24 h-24 mx-auto mb-8 rounded-full bg-white/10 flex items-center justify-center">
+            <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <h1 className="text-3xl font-bold mb-2">{screen.name}</h1>
+          <p className="text-lg opacity-60">No content assigned to this screen</p>
+        </div>
+      </div>
+    );
+  }
+
+  const currentContent = screenContent[currentIndex];
+
+  return (
+    <div className="display-fullscreen">
+      {/* Content */}
+      <div 
+        className={`absolute inset-0 content-transition ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}
+      >
+        {currentContent.type === 'image' ? (
+          <img
+            src={currentContent.url}
+            alt={currentContent.name}
+            className="w-full h-full object-cover"
+            onError={() => setError('Failed to load image')}
+          />
+        ) : (
+          <video
+            src={currentContent.url}
+            className="w-full h-full object-cover"
+            autoPlay
+            muted
+            loop
+            playsInline
+            onError={() => setError('Failed to load video')}
+          />
+        )}
+      </div>
+
+      {/* Progress indicators */}
+      {screenContent.length > 1 && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+          {screenContent.map((_, idx) => (
+            <div
+              key={idx}
+              className={`h-1 rounded-full transition-all duration-300 ${
+                idx === currentIndex 
+                  ? 'w-8 bg-white' 
+                  : 'w-2 bg-white/40'
+              }`}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Error overlay */}
+      {error && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+          <div className="text-center text-white">
+            <p className="text-xl">{error}</p>
+            <p className="text-sm opacity-60 mt-2">Attempting to reload...</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
