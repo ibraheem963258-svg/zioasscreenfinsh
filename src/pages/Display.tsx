@@ -408,6 +408,16 @@ export default function Display() {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [fetchData, setupRealtimeSubscription]);
 
+  // Handle playlist transition completion - MUST be before early returns
+  const handleTransitionEnd = useCallback(() => {
+    if (pendingPlaylistRef.current) {
+      setPlaylist(pendingPlaylistRef.current.playlist);
+      setContent(pendingPlaylistRef.current.content);
+      pendingPlaylistRef.current = null;
+    }
+    setIsPlaylistTransitioning(false);
+  }, []);
+
   if (isLoading) {
     return <LoadingScreen message="Loading content..." />;
   }
@@ -447,16 +457,6 @@ export default function Display() {
   if (!settings) {
     return <LoadingScreen message="Loading settings..." />;
   }
-
-  // Handle playlist transition completion
-  const handleTransitionEnd = useCallback(() => {
-    if (pendingPlaylistRef.current) {
-      setPlaylist(pendingPlaylistRef.current.playlist);
-      setContent(pendingPlaylistRef.current.content);
-      pendingPlaylistRef.current = null;
-    }
-    setIsPlaylistTransitioning(false);
-  }, []);
 
   return (
     <div className="display-fullscreen">
