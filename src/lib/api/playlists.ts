@@ -184,12 +184,31 @@ export async function activatePlaylist(playlistId: string): Promise<void> {
 }
 
 export async function deactivatePlaylist(playlistId: string): Promise<void> {
+  // First, get the playlist to know its target
+  const { data: playlistData, error: fetchError } = await supabase
+    .from('playlists')
+    .select('target_type, target_id')
+    .eq('id', playlistId)
+    .single();
+  
+  if (fetchError) throw fetchError;
+
+  // Deactivate the playlist
   const { error } = await supabase
     .from('playlists')
     .update({ is_active: false })
     .eq('id', playlistId);
   
   if (error) throw error;
+
+  // If this playlist was assigned to a screen, clear the current_playlist_id
+  if (playlistData.target_type === 'screen') {
+    await supabase
+      .from('screens')
+      .update({ current_playlist_id: null })
+      .eq('id', playlistData.target_id)
+      .eq('current_playlist_id', playlistId);
+  }
 }
 
 export async function deletePlaylist(playlistId: string): Promise<void> {
