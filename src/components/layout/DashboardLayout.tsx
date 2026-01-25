@@ -1,7 +1,13 @@
+import { ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
+import { Sidebar } from './Sidebar';
 import { useAuth } from '@/contexts/AuthContext';
 
-const Index = () => {
+interface DashboardLayoutProps {
+  children: ReactNode;
+}
+
+export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
@@ -15,11 +21,18 @@ const Index = () => {
     );
   }
 
-  if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
   }
 
-  return <Navigate to="/login" replace />;
-};
-
-export default Index;
+  return (
+    <div className="min-h-screen bg-background">
+      <Sidebar />
+      <main className="pl-64">
+        <div className="p-6">
+          {children}
+        </div>
+      </main>
+    </div>
+  );
+}
