@@ -53,6 +53,7 @@ import {
 import { ContentItem, Screen, ScreenGroup, Branch } from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { FileUploadZone } from '@/components/content/FileUploadZone';
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return bytes + ' B';
@@ -138,6 +139,34 @@ export default function Content() {
   const handleAssign = (contentItem: ContentItem) => {
     setSelectedContent(contentItem);
     setIsAssignOpen(true);
+  };
+
+  const handleFileUploadComplete = async (uploadedFile: {
+    name: string;
+    type: 'image' | 'video';
+    url: string;
+    thumbnailUrl: string;
+    fileSize: number;
+    duration: number;
+  }) => {
+    try {
+      const newContent = await createContent(
+        uploadedFile.name,
+        uploadedFile.type,
+        uploadedFile.url,
+        uploadedFile.thumbnailUrl,
+        uploadedFile.duration,
+        uploadedFile.fileSize
+      );
+      setContent(prev => [newContent, ...prev]);
+      setIsUploadOpen(false);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to save content.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleCreateContent = async () => {
@@ -257,55 +286,17 @@ export default function Content() {
                 Add Content
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-lg">
               <DialogHeader>
                 <DialogTitle>Add New Content</DialogTitle>
                 <DialogDescription>
-                  Add new images or videos to your content library.
+                  Upload images or videos to your content library.
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label>Content Name</Label>
-                  <Input 
-                    placeholder="e.g., Summer Promo" 
-                    value={newContentName}
-                    onChange={(e) => setNewContentName(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Content Type</Label>
-                  <Select value={newContentType} onValueChange={(v) => setNewContentType(v as 'image' | 'video')}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="image">Image</SelectItem>
-                      <SelectItem value="video">Video</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Content URL</Label>
-                  <Input 
-                    placeholder="https://example.com/image.jpg" 
-                    value={newContentUrl}
-                    onChange={(e) => setNewContentUrl(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Display Duration (seconds)</Label>
-                  <Input 
-                    type="number" 
-                    value={newContentDuration}
-                    onChange={(e) => setNewContentDuration(e.target.value)}
-                  />
-                </div>
-              </div>
-              <Button className="w-full" onClick={handleCreateContent} disabled={isSaving}>
-                {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Add Content
-              </Button>
+              <FileUploadZone 
+                onUploadComplete={handleFileUploadComplete}
+                onClose={() => setIsUploadOpen(false)}
+              />
             </DialogContent>
           </Dialog>
         </div>
