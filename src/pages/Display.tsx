@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { updateScreenStatus } from '@/lib/api';
 import { getActivePlaylistForScreen, getEffectiveDisplaySettings } from '@/lib/api/index';
@@ -122,12 +122,23 @@ export default function Display() {
     return () => clearInterval(interval);
   }, [screen?.id]);
 
-  // Subscribe to realtime updates
+  // Subscribe to realtime updates with instant response
   useEffect(() => {
     if (!screen?.id) return;
 
+    // Fast content update function
+    const quickRefresh = async () => {
+      try {
+        const { playlist: activePlaylist, content: playlistContent } = await getActivePlaylistForScreen(screen.id);
+        setPlaylist(activePlaylist);
+        setContent(playlistContent);
+      } catch (err) {
+        console.error('Quick refresh failed:', err);
+      }
+    };
+
     const channel = supabase
-      .channel(`display-${screen.id}`)
+      .channel(`display-${screen.id}-realtime`)
       // Screen updates (play/pause, status)
       .on(
         'postgres_changes',
@@ -140,9 +151,13 @@ export default function Display() {
         (payload) => {
           const updated = payload.new as any;
           setIsPlaying(updated.is_playing ?? true);
+          // Quick refresh if playlist changed
+          if (updated.current_playlist_id !== playlist?.id) {
+            quickRefresh();
+          }
         }
       )
-      // Playlist changes
+      // Playlist changes - instant response
       .on(
         'postgres_changes',
         {
@@ -150,12 +165,12 @@ export default function Display() {
           schema: 'public',
           table: 'playlists',
         },
-        () => {
-          // Refetch when playlists change
-          fetchData();
+        (payload) => {
+          console.log('Playlist changed:', payload);
+          quickRefresh();
         }
       )
-      // Playlist items changes
+      // Playlist items changes - instant response
       .on(
         'postgres_changes',
         {
@@ -163,8 +178,9 @@ export default function Display() {
           schema: 'public',
           table: 'playlist_items',
         },
-        () => {
-          fetchData();
+        (payload) => {
+          console.log('Playlist items changed:', payload);
+          quickRefresh();
         }
       )
       // Display settings changes
@@ -179,7 +195,7 @@ export default function Display() {
           fetchData();
         }
       )
-      // Content changes
+      // Content changes - instant response  
       .on(
         'postgres_changes',
         {
@@ -187,16 +203,19 @@ export default function Display() {
           schema: 'public',
           table: 'content',
         },
-        () => {
-          fetchData();
+        (payload) => {
+          console.log('Content changed:', payload);
+          quickRefresh();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Realtime subscription status:', status);
+      });
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [screen?.id, fetchData]);
+  }, [screen?.id, playlist?.id, fetchData]);
 
   // Enter fullscreen on load
   useEffect(() => {
