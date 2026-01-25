@@ -9,7 +9,7 @@ import { LoadingScreen } from '@/components/display/LoadingScreen';
 import { ErrorScreen } from '@/components/display/ErrorScreen';
 import { IdleScreen } from '@/components/display/IdleScreen';
 import { PausedScreen } from '@/components/display/PausedScreen';
-
+import { PlaylistTransition } from '@/components/display/PlaylistTransition';
 // Connection status component
 function ConnectionStatus({ isOnline, isReconnecting }: { isOnline: boolean; isReconnecting: boolean }) {
   if (isOnline && !isReconnecting) return null;
@@ -44,6 +44,9 @@ export default function Display() {
   // Connection state
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isReconnecting, setIsReconnecting] = useState(false);
+  const [isPlaylistTransitioning, setIsPlaylistTransitioning] = useState(false);
+  const [newPlaylistName, setNewPlaylistName] = useState<string>('');
+  const pendingPlaylistRef = useRef<{ playlist: Playlist | null; content: ContentItem[] } | null>(null);
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 10;
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -168,12 +171,24 @@ export default function Display() {
       supabase.removeChannel(channelRef.current);
     }
 
-    // Fast content update function
-    const quickRefresh = async () => {
+    // Fast content update function with smooth transition
+    const quickRefresh = async (showTransition = true) => {
       try {
         const { playlist: activePlaylist, content: playlistContent } = await getActivePlaylistForScreen(screen.id);
-        setPlaylist(activePlaylist);
-        setContent(playlistContent);
+        
+        // Check if playlist actually changed
+        const playlistChanged = activePlaylist?.id !== playlist?.id;
+        
+        if (playlistChanged && showTransition && activePlaylist) {
+          // Store pending data and show transition
+          pendingPlaylistRef.current = { playlist: activePlaylist, content: playlistContent };
+          setNewPlaylistName(activePlaylist.name);
+          setIsPlaylistTransitioning(true);
+        } else {
+          // No transition needed, update directly
+          setPlaylist(activePlaylist);
+          setContent(playlistContent);
+        }
       } catch (err) {
         console.error('Quick refresh failed:', err);
       }
@@ -421,9 +436,24 @@ export default function Display() {
     return <LoadingScreen message="Loading settings..." />;
   }
 
+  // Handle playlist transition completion
+  const handleTransitionEnd = useCallback(() => {
+    if (pendingPlaylistRef.current) {
+      setPlaylist(pendingPlaylistRef.current.playlist);
+      setContent(pendingPlaylistRef.current.content);
+      pendingPlaylistRef.current = null;
+    }
+    setIsPlaylistTransitioning(false);
+  }, []);
+
   return (
     <div className="display-fullscreen">
       <ConnectionStatus isOnline={isOnline} isReconnecting={isReconnecting} />
+      <PlaylistTransition 
+        isTransitioning={isPlaylistTransitioning}
+        playlistName={newPlaylistName}
+        onTransitionEnd={handleTransitionEnd}
+      />
       <ContentRenderer
         content={content}
         settings={settings}
