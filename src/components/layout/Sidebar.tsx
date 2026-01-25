@@ -61,16 +61,16 @@ export function Sidebar() {
 
         {/* User section */}
         <div className="border-t border-sidebar-border p-4">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/20 text-primary">
-              {user?.name?.charAt(0) || 'A'}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-sidebar-foreground truncate">
-                {user?.name || 'Admin'}
-              </p>
-              <p className="text-xs text-muted-foreground truncate">
-                {user?.email || 'admin@signage.com'}
+        <div className="flex items-center gap-3 mb-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/20 text-primary">
+            {user?.email?.charAt(0).toUpperCase() || 'A'}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-sidebar-foreground truncate">
+              {user?.user_metadata?.full_name || 'مسؤول'}
+            </p>
+            <p className="text-xs text-muted-foreground truncate">
+              {user?.email || 'admin@signage.com'}
               </p>
             </div>
           </div>

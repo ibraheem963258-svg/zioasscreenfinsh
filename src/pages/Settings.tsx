@@ -76,7 +76,7 @@ export default function Settings() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Full Name</Label>
-                    <Input defaultValue={user?.name || 'Admin User'} />
+                    <Input defaultValue={user?.user_metadata?.full_name || 'مسؤول'} />
                   </div>
                   <div className="space-y-2">
                     <Label>Email Address</Label>
