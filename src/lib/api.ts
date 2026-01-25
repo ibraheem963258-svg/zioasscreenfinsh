@@ -107,19 +107,32 @@ export async function getScreens(): Promise<Screen[]> {
   
   if (contentError) throw contentError;
 
-  return screensData.map(s => ({
-    id: s.id,
-    name: s.name,
-    slug: s.slug,
-    branchId: s.branch_id,
-    groupIds: assignmentsData.filter(a => a.screen_id === s.id).map(a => a.group_id),
-    orientation: s.orientation as 'landscape' | 'portrait',
-    resolution: s.resolution,
-    status: s.status as 'online' | 'offline',
-    isPlaying: (s as any).is_playing ?? true,
-    lastUpdated: new Date(s.updated_at),
-    contentIds: contentAssignments.filter(c => c.target_id === s.id).map(c => c.content_id),
-  }));
+  return screensData.map(s => {
+    const hasActivePlaylist = s.current_playlist_id !== null;
+    const isOnline = s.status === 'online';
+    let status: 'online' | 'offline' | 'idle' = s.status as 'online' | 'offline';
+    
+    // Determine if screen is idle (online but no active playlist)
+    if (isOnline && !hasActivePlaylist) {
+      status = 'idle';
+    }
+
+    return {
+      id: s.id,
+      name: s.name,
+      slug: s.slug,
+      branchId: s.branch_id,
+      groupIds: assignmentsData.filter(a => a.screen_id === s.id).map(a => a.group_id),
+      orientation: s.orientation as 'landscape' | 'portrait',
+      resolution: s.resolution,
+      status,
+      isPlaying: s.is_playing ?? true,
+      lastHeartbeat: s.last_heartbeat ? new Date(s.last_heartbeat) : null,
+      lastUpdated: new Date(s.updated_at),
+      contentIds: contentAssignments.filter(c => c.target_id === s.id).map(c => c.content_id),
+      currentPlaylistId: s.current_playlist_id,
+    };
+  });
 }
 
 export async function createScreen(
@@ -155,10 +168,12 @@ export async function createScreen(
     groupIds,
     orientation: data.orientation as 'landscape' | 'portrait',
     resolution: data.resolution,
-    status: data.status as 'online' | 'offline',
-    isPlaying: (data as any).is_playing ?? true,
+    status: data.status as 'online' | 'offline' | 'idle',
+    isPlaying: data.is_playing ?? true,
+    lastHeartbeat: data.last_heartbeat ? new Date(data.last_heartbeat) : null,
     lastUpdated: new Date(data.updated_at),
     contentIds: [],
+    currentPlaylistId: data.current_playlist_id ?? null,
   };
 }
 
@@ -385,24 +400,33 @@ export async function deleteSchedule(id: string): Promise<void> {
 
 // Dashboard Stats
 export async function getDashboardStats(): Promise<DashboardStats> {
-  const [branches, groups, screens, content, schedules] = await Promise.all([
+  const [branches, groups, screens, content, schedules, playlists] = await Promise.all([
     supabase.from('branches').select('id', { count: 'exact' }),
     supabase.from('screen_groups').select('id', { count: 'exact' }),
-    supabase.from('screens').select('id, status'),
+    supabase.from('screens').select('id, status, current_playlist_id'),
     supabase.from('content').select('id', { count: 'exact' }),
     supabase.from('schedules').select('id, is_active'),
+    supabase.from('playlists').select('id, is_active'),
   ]);
 
   const screensData = screens.data || [];
   const schedulesData = schedules.data || [];
+  const playlistsData = playlists.data || [];
+
+  // Count screens by status
+  const onlineScreens = screensData.filter(s => s.status === 'online' && s.current_playlist_id !== null).length;
+  const idleScreens = screensData.filter(s => s.status === 'online' && s.current_playlist_id === null).length;
+  const offlineScreens = screensData.filter(s => s.status === 'offline').length;
 
   return {
     totalScreens: screensData.length,
-    onlineScreens: screensData.filter(s => s.status === 'online').length,
-    offlineScreens: screensData.filter(s => s.status === 'offline').length,
+    onlineScreens,
+    offlineScreens,
+    idleScreens,
     totalBranches: branches.count || 0,
     totalGroups: groups.count || 0,
     totalContent: content.count || 0,
+    activePlaylists: playlistsData.filter(p => p.is_active).length,
     activeSchedules: schedulesData.filter(s => s.is_active).length,
   };
 }
@@ -469,6 +493,13 @@ export async function getScreenContent(slug: string): Promise<{ screen: Screen |
     }));
   }
 
+  const hasActivePlaylist = screenData.current_playlist_id !== null;
+  const isOnline = screenData.status === 'online';
+  let status: 'online' | 'offline' | 'idle' = screenData.status as 'online' | 'offline';
+  if (isOnline && !hasActivePlaylist) {
+    status = 'idle';
+  }
+
   const screen: Screen = {
     id: screenData.id,
     name: screenData.name,
@@ -477,10 +508,12 @@ export async function getScreenContent(slug: string): Promise<{ screen: Screen |
     groupIds,
     orientation: screenData.orientation as 'landscape' | 'portrait',
     resolution: screenData.resolution,
-    status: screenData.status as 'online' | 'offline',
-    isPlaying: (screenData as any).is_playing ?? true,
+    status,
+    isPlaying: screenData.is_playing ?? true,
+    lastHeartbeat: screenData.last_heartbeat ? new Date(screenData.last_heartbeat) : null,
     lastUpdated: new Date(screenData.updated_at),
     contentIds: Array.from(relevantContentIds),
+    currentPlaylistId: screenData.current_playlist_id ?? null,
   };
 
   return { screen, content: contentItems };

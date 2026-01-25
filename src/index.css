@@ -110,6 +110,10 @@
     @apply bg-destructive/20 text-destructive border-destructive/30;
   }
 
+  .status-idle {
+    @apply bg-warning/20 text-warning border-warning/30;
+  }
+
   .status-warning {
     @apply bg-warning/20 text-warning border-warning/30;
   }
