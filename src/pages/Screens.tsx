@@ -13,7 +13,9 @@ import {
   ExternalLink,
   Wifi,
   WifiOff,
-  Loader2
+  Loader2,
+  Copy,
+  Link
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
@@ -130,8 +132,29 @@ export default function Screens() {
     return matchesSearch && matchesBranch && matchesStatus;
   });
 
+  const getDisplayUrl = (slug: string) => {
+    return `${window.location.origin}/display/${slug}`;
+  };
+
   const handlePreview = (screen: Screen) => {
     window.open(`/display/${screen.slug}`, '_blank');
+  };
+
+  const handleCopyUrl = async (screen: Screen) => {
+    const url = getDisplayUrl(screen.slug);
+    try {
+      await navigator.clipboard.writeText(url);
+      toast({
+        title: 'Copied!',
+        description: 'Display URL copied to clipboard.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to copy URL.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleDeleteScreen = async (screenId: string) => {
@@ -557,6 +580,10 @@ export default function Screens() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleCopyUrl(screen)}>
+                            <Copy className="h-4 w-4 mr-2" />
+                            Copy Display URL
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handlePreview(screen)}>
                             <Eye className="h-4 w-4 mr-2" />
                             Preview
@@ -613,9 +640,15 @@ export default function Screens() {
                             {formatDistanceToNow(screen.lastUpdated, { addSuffix: true })}
                           </span>
                         </div>
-                        <div className="flex justify-between text-sm mt-1">
+                        <div className="flex items-center justify-between text-sm mt-1">
                           <span className="text-muted-foreground">Display URL</span>
-                          <span className="text-primary text-xs">/display/{screen.slug}</span>
+                          <button
+                            onClick={() => handleCopyUrl(screen)}
+                            className="flex items-center gap-1 text-primary text-xs hover:underline cursor-pointer"
+                          >
+                            <Link className="h-3 w-3" />
+                            Copy URL
+                          </button>
                         </div>
                       </div>
                     </div>
