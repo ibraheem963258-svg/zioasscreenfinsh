@@ -11,7 +11,8 @@ import {
   Link,
   Clock,
   HardDrive,
-  Loader2
+  Loader2,
+  ListVideo
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
@@ -46,6 +47,7 @@ import {
   createContent, 
   deleteContent, 
   assignContent,
+  assignPlaylist,
   getScreens,
   getScreenGroups,
   getBranches
@@ -55,6 +57,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { FileUploadZone } from '@/components/content/FileUploadZone';
 import { AssignContentDialog } from '@/components/content/AssignContentDialog';
+import { PlaylistCreator } from '@/components/content/PlaylistCreator';
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return bytes + ' B';
@@ -71,6 +74,7 @@ export default function Content() {
   const [filterType, setFilterType] = useState<string>('all');
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isAssignOpen, setIsAssignOpen] = useState(false);
+  const [isPlaylistOpen, setIsPlaylistOpen] = useState(false);
   const [selectedContent, setSelectedContent] = useState<ContentItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -223,6 +227,22 @@ export default function Content() {
     }
   };
 
+  const handleCreatePlaylist = async (
+    items: { content: ContentItem; duration: number; order: number }[],
+    targetType: string,
+    targetIds: string[]
+  ) => {
+    await assignPlaylist(
+      items.map(item => ({
+        contentId: item.content.id,
+        duration: item.duration,
+        order: item.order,
+      })),
+      targetType as 'screen' | 'group' | 'branch',
+      targetIds
+    );
+  };
+
   if (isLoading) {
     return (
       <DashboardLayout>
@@ -249,26 +269,32 @@ export default function Content() {
               Manage your digital signage content
             </p>
           </div>
-          <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Upload className="h-4 w-4 mr-2" />
-                Add Content
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Add New Content</DialogTitle>
-                <DialogDescription>
-                  Upload images or videos to your content library.
-                </DialogDescription>
-              </DialogHeader>
-              <FileUploadZone 
-                onUploadComplete={handleFileUploadComplete}
-                onClose={() => setIsUploadOpen(false)}
-              />
-            </DialogContent>
-          </Dialog>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => setIsPlaylistOpen(true)}>
+              <ListVideo className="h-4 w-4 mr-2" />
+              Create Playlist
+            </Button>
+            <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Add Content
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Add New Content</DialogTitle>
+                  <DialogDescription>
+                    Upload images or videos to your content library.
+                  </DialogDescription>
+                </DialogHeader>
+                <FileUploadZone 
+                  onUploadComplete={handleFileUploadComplete}
+                  onClose={() => setIsUploadOpen(false)}
+                />
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         {/* Filters */}
@@ -424,6 +450,17 @@ export default function Content() {
           groups={groups}
           branches={branches}
           onAssignComplete={() => fetchData()}
+        />
+
+        {/* Playlist Creator */}
+        <PlaylistCreator
+          open={isPlaylistOpen}
+          onOpenChange={setIsPlaylistOpen}
+          allContent={content}
+          screens={screens}
+          groups={groups}
+          branches={branches}
+          onCreatePlaylist={handleCreatePlaylist}
         />
       </div>
     </DashboardLayout>
