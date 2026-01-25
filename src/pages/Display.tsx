@@ -53,12 +53,25 @@ export default function Display() {
     return () => clearInterval(heartbeatInterval);
   }, [slug]);
 
-  // Subscribe to realtime updates for this screen's isPlaying status
+  // Subscribe to realtime updates for screen status and content changes
   useEffect(() => {
     if (!screen?.id) return;
 
+    const refetchContent = async () => {
+      if (!slug) return;
+      try {
+        const { screen: screenData, content: contentData } = await getScreenContent(slug);
+        setScreen(screenData);
+        setContent(contentData);
+        setIsPlaying(screenData?.isPlaying ?? true);
+        setCurrentIndex(0); // Reset to first slide when content changes
+      } catch (err) {
+        console.error('Error refetching content:', err);
+      }
+    };
+
     const channel = supabase
-      .channel(`screen-${screen.id}`)
+      .channel(`screen-realtime-${screen.id}`)
       .on(
         'postgres_changes',
         {
@@ -72,12 +85,36 @@ export default function Display() {
           setIsPlaying(updatedScreen.is_playing ?? true);
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'content_assignments',
+        },
+        () => {
+          // Refetch content when assignments change
+          refetchContent();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'content',
+        },
+        () => {
+          // Refetch content when content is updated
+          refetchContent();
+        }
+      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [screen?.id]);
+  }, [screen?.id, slug]);
 
   const nextSlide = useCallback(() => {
     if (content.length <= 1) return;
