@@ -52,7 +52,6 @@ import {
 } from '@/lib/api';
 import { ContentItem, Screen, ScreenGroup, Branch } from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
-import { ar } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 
 function formatFileSize(bytes: number): string {
@@ -104,8 +103,8 @@ export default function Content() {
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({
-        title: 'خطأ',
-        description: 'فشل في جلب البيانات',
+        title: 'Error',
+        description: 'Failed to fetch data',
         variant: 'destructive',
       });
     } finally {
@@ -124,13 +123,13 @@ export default function Content() {
       await deleteContent(contentId);
       setContent(prev => prev.filter(c => c.id !== contentId));
       toast({
-        title: 'تم الحذف',
-        description: 'تم حذف المحتوى بنجاح.',
+        title: 'Deleted',
+        description: 'Content deleted successfully.',
       });
     } catch (error) {
       toast({
-        title: 'خطأ',
-        description: 'فشل في حذف المحتوى.',
+        title: 'Error',
+        description: 'Failed to delete content.',
         variant: 'destructive',
       });
     }
@@ -144,8 +143,8 @@ export default function Content() {
   const handleCreateContent = async () => {
     if (!newContentName || !newContentUrl) {
       toast({
-        title: 'خطأ',
-        description: 'الرجاء ملء جميع الحقول المطلوبة.',
+        title: 'Error',
+        description: 'Please fill in all required fields.',
         variant: 'destructive',
       });
       return;
@@ -168,13 +167,13 @@ export default function Content() {
       setNewContentType('image');
       setNewContentDuration('10');
       toast({
-        title: 'تم الإنشاء',
-        description: 'تم إضافة المحتوى بنجاح.',
+        title: 'Created',
+        description: 'Content added successfully.',
       });
     } catch (error) {
       toast({
-        title: 'خطأ',
-        description: 'فشل في إنشاء المحتوى.',
+        title: 'Error',
+        description: 'Failed to create content.',
         variant: 'destructive',
       });
     } finally {
@@ -185,8 +184,8 @@ export default function Content() {
   const handleAssignContent = async () => {
     if (!selectedContent || !assignTargetId) {
       toast({
-        title: 'خطأ',
-        description: 'الرجاء اختيار الهدف.',
+        title: 'Error',
+        description: 'Please select a target.',
         variant: 'destructive',
       });
       return;
@@ -198,13 +197,13 @@ export default function Content() {
       setIsAssignOpen(false);
       setAssignTargetId('');
       toast({
-        title: 'تم التعيين',
-        description: 'تم تعيين المحتوى بنجاح.',
+        title: 'Assigned',
+        description: 'Content assigned successfully.',
       });
     } catch (error) {
       toast({
-        title: 'خطأ',
-        description: 'فشل في تعيين المحتوى.',
+        title: 'Error',
+        description: 'Failed to assign content.',
         variant: 'destructive',
       });
     } finally {
@@ -246,57 +245,56 @@ export default function Content() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">مكتبة المحتوى</h1>
+            <h1 className="text-3xl font-bold text-foreground">Content Library</h1>
             <p className="text-muted-foreground mt-1">
-              إدارة محتوى اللافتات الرقمية
+              Manage your digital signage content
             </p>
           </div>
           <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
             <DialogTrigger asChild>
               <Button>
                 <Upload className="h-4 w-4 mr-2" />
-                إضافة محتوى
+                Add Content
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>إضافة محتوى جديد</DialogTitle>
+                <DialogTitle>Add New Content</DialogTitle>
                 <DialogDescription>
-                  أضف صوراً أو فيديوهات جديدة لمكتبة المحتوى.
+                  Add new images or videos to your content library.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label>اسم المحتوى</Label>
+                  <Label>Content Name</Label>
                   <Input 
-                    placeholder="مثال: إعلان الصيف" 
+                    placeholder="e.g., Summer Promo" 
                     value={newContentName}
                     onChange={(e) => setNewContentName(e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>نوع المحتوى</Label>
+                  <Label>Content Type</Label>
                   <Select value={newContentType} onValueChange={(v) => setNewContentType(v as 'image' | 'video')}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="image">صورة</SelectItem>
-                      <SelectItem value="video">فيديو</SelectItem>
+                      <SelectItem value="image">Image</SelectItem>
+                      <SelectItem value="video">Video</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>رابط المحتوى (URL)</Label>
+                  <Label>Content URL</Label>
                   <Input 
                     placeholder="https://example.com/image.jpg" 
                     value={newContentUrl}
                     onChange={(e) => setNewContentUrl(e.target.value)}
-                    dir="ltr"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>مدة العرض (ثواني)</Label>
+                  <Label>Display Duration (seconds)</Label>
                   <Input 
                     type="number" 
                     value={newContentDuration}
@@ -306,7 +304,7 @@ export default function Content() {
               </div>
               <Button className="w-full" onClick={handleCreateContent} disabled={isSaving}>
                 {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                إضافة المحتوى
+                Add Content
               </Button>
             </DialogContent>
           </Dialog>
@@ -317,7 +315,7 @@ export default function Content() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="بحث في المحتوى..."
+              placeholder="Search content..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -326,12 +324,12 @@ export default function Content() {
           <Select value={filterType} onValueChange={setFilterType}>
             <SelectTrigger className="w-[160px]">
               <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="جميع الأنواع" />
+              <SelectValue placeholder="All Types" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">جميع الأنواع</SelectItem>
-              <SelectItem value="image">صور</SelectItem>
-              <SelectItem value="video">فيديوهات</SelectItem>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="image">Images</SelectItem>
+              <SelectItem value="video">Videos</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -346,7 +344,7 @@ export default function Content() {
               <p className="text-2xl font-bold text-foreground">
                 {content.filter(c => c.type === 'image').length}
               </p>
-              <p className="text-sm text-muted-foreground">صور</p>
+              <p className="text-sm text-muted-foreground">Images</p>
             </div>
           </div>
           <div className="stat-card flex items-center gap-4">
@@ -357,7 +355,7 @@ export default function Content() {
               <p className="text-2xl font-bold text-foreground">
                 {content.filter(c => c.type === 'video').length}
               </p>
-              <p className="text-sm text-muted-foreground">فيديوهات</p>
+              <p className="text-sm text-muted-foreground">Videos</p>
             </div>
           </div>
           <div className="stat-card flex items-center gap-4">
@@ -368,7 +366,7 @@ export default function Content() {
               <p className="text-2xl font-bold text-foreground">
                 {formatFileSize(content.reduce((acc, c) => acc + c.fileSize, 0))}
               </p>
-              <p className="text-sm text-muted-foreground">الحجم الإجمالي</p>
+              <p className="text-sm text-muted-foreground">Total Size</p>
             </div>
           </div>
         </div>
@@ -377,9 +375,9 @@ export default function Content() {
         {filteredContent.length === 0 ? (
           <div className="text-center py-12 stat-card">
             <Image className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-foreground">لا يوجد محتوى</h3>
+            <h3 className="text-lg font-semibold text-foreground">No content found</h3>
             <p className="text-muted-foreground mt-1">
-              أضف أول محتوى للبدء.
+              Add your first content to get started.
             </p>
           </div>
         ) : (
@@ -400,7 +398,7 @@ export default function Content() {
                       ) : (
                         <Video className="h-3 w-3 mr-1" />
                       )}
-                      {item.type === 'image' ? 'صورة' : 'فيديو'}
+                      {item.type === 'image' ? 'Image' : 'Video'}
                     </Badge>
                   </div>
                 </div>
@@ -418,11 +416,11 @@ export default function Content() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem>
                           <Eye className="h-4 w-4 mr-2" />
-                          معاينة
+                          Preview
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleAssign(item)}>
                           <Link className="h-4 w-4 mr-2" />
-                          تعيين لشاشة
+                          Assign to Screen
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem 
@@ -430,7 +428,7 @@ export default function Content() {
                           onClick={() => handleDelete(item.id)}
                         >
                           <Trash2 className="h-4 w-4 mr-2" />
-                          حذف
+                          Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -439,7 +437,7 @@ export default function Content() {
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
-                      {item.duration} ثانية
+                      {item.duration}s
                     </div>
                     <div className="flex items-center gap-1">
                       <HardDrive className="h-3 w-3" />
@@ -448,7 +446,7 @@ export default function Content() {
                   </div>
 
                   <p className="text-xs text-muted-foreground">
-                    تم الرفع {formatDistanceToNow(item.uploadedAt, { addSuffix: true, locale: ar })}
+                    Uploaded {formatDistanceToNow(item.uploadedAt, { addSuffix: true })}
                   </p>
                 </div>
               </div>
@@ -460,33 +458,33 @@ export default function Content() {
         <Dialog open={isAssignOpen} onOpenChange={setIsAssignOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>تعيين المحتوى</DialogTitle>
+              <DialogTitle>Assign Content</DialogTitle>
               <DialogDescription>
-                تعيين "{selectedContent?.name}" للشاشات أو المجموعات أو الفروع.
+                Assign "{selectedContent?.name}" to screens, groups, or branches.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label>تعيين إلى</Label>
+                <Label>Assign To</Label>
                 <Select value={assignTargetType} onValueChange={(v) => {
                   setAssignTargetType(v as 'screen' | 'group' | 'branch');
                   setAssignTargetId('');
                 }}>
                   <SelectTrigger>
-                    <SelectValue placeholder="اختر نوع الهدف" />
+                    <SelectValue placeholder="Select target type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="screen">شاشة واحدة</SelectItem>
-                    <SelectItem value="group">مجموعة شاشات</SelectItem>
-                    <SelectItem value="branch">جميع شاشات الفرع</SelectItem>
+                    <SelectItem value="screen">Single Screen</SelectItem>
+                    <SelectItem value="group">Screen Group</SelectItem>
+                    <SelectItem value="branch">All Branch Screens</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>اختر الهدف</Label>
+                <Label>Select Target</Label>
                 <Select value={assignTargetId} onValueChange={setAssignTargetId}>
                   <SelectTrigger>
-                    <SelectValue placeholder="اختر..." />
+                    <SelectValue placeholder="Select..." />
                   </SelectTrigger>
                   <SelectContent>
                     {getTargetOptions().map(option => (
@@ -500,7 +498,7 @@ export default function Content() {
             </div>
             <Button className="w-full" onClick={handleAssignContent} disabled={isSaving}>
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              تعيين المحتوى
+              Assign Content
             </Button>
           </DialogContent>
         </Dialog>

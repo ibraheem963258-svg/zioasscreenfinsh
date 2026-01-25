@@ -30,21 +30,21 @@ export default function Login() {
       const result = await login(email, password);
       if (result.success) {
         toast({
-          title: 'مرحباً!',
-          description: 'تم تسجيل الدخول بنجاح.',
+          title: 'Welcome!',
+          description: 'You have successfully logged in.',
         });
         navigate('/dashboard');
       } else {
         toast({
-          title: 'فشل تسجيل الدخول',
-          description: result.error || 'البريد الإلكتروني أو كلمة المرور غير صحيحة.',
+          title: 'Login failed',
+          description: result.error || 'Invalid email or password.',
           variant: 'destructive',
         });
       }
     } catch (error) {
       toast({
-        title: 'خطأ',
-        description: 'حدث خطأ. الرجاء المحاولة مرة أخرى.',
+        title: 'Error',
+        description: 'An error occurred. Please try again.',
         variant: 'destructive',
       });
     } finally {
@@ -60,25 +60,25 @@ export default function Login() {
       const result = await signup(email, password, fullName);
       if (result.success) {
         toast({
-          title: 'تم إنشاء الحساب!',
-          description: 'تم إنشاء حسابك بنجاح. يمكنك الآن تسجيل الدخول.',
+          title: 'Account created!',
+          description: 'Your account has been created successfully.',
         });
         navigate('/dashboard');
       } else {
-        let errorMessage = result.error || 'فشل إنشاء الحساب.';
+        let errorMessage = result.error || 'Failed to create account.';
         if (result.error?.includes('already registered')) {
-          errorMessage = 'هذا البريد الإلكتروني مسجل بالفعل.';
+          errorMessage = 'This email is already registered.';
         }
         toast({
-          title: 'فشل إنشاء الحساب',
+          title: 'Signup failed',
           description: errorMessage,
           variant: 'destructive',
         });
       }
     } catch (error) {
       toast({
-        title: 'خطأ',
-        description: 'حدث خطأ. الرجاء المحاولة مرة أخرى.',
+        title: 'Error',
+        description: 'An error occurred. Please try again.',
         variant: 'destructive',
       });
     } finally {
@@ -98,21 +98,21 @@ export default function Login() {
           </div>
           <h1 className="text-4xl font-bold gradient-text mb-4">SignageHub</h1>
           <p className="text-lg text-muted-foreground mb-8">
-            نظام إدارة اللافتات الرقمية الاحترافي للأعمال الحديثة.
-            تحكم بشاشاتك ومحتواك وجداولك من منصة واحدة قوية.
+            Professional digital signage management system for modern businesses.
+            Control your screens, content, and schedules from one powerful platform.
           </p>
           <div className="grid grid-cols-3 gap-4 text-center">
             <div className="p-4 rounded-lg bg-card/50 border border-border">
               <p className="text-2xl font-bold text-primary">70+</p>
-              <p className="text-sm text-muted-foreground">شاشة</p>
+              <p className="text-sm text-muted-foreground">Screens</p>
             </div>
             <div className="p-4 rounded-lg bg-card/50 border border-border">
               <p className="text-2xl font-bold text-success">99.9%</p>
-              <p className="text-sm text-muted-foreground">استقرار</p>
+              <p className="text-sm text-muted-foreground">Uptime</p>
             </div>
             <div className="p-4 rounded-lg bg-card/50 border border-border">
               <p className="text-2xl font-bold text-warning">24/7</p>
-              <p className="text-sm text-muted-foreground">دعم</p>
+              <p className="text-sm text-muted-foreground">Support</p>
             </div>
           </div>
         </div>
@@ -132,21 +132,21 @@ export default function Login() {
 
           <Tabs defaultValue="login" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="login">تسجيل الدخول</TabsTrigger>
-              <TabsTrigger value="signup">إنشاء حساب</TabsTrigger>
+              <TabsTrigger value="login">Login</TabsTrigger>
+              <TabsTrigger value="signup">Sign Up</TabsTrigger>
             </TabsList>
 
             <TabsContent value="login" className="space-y-6 mt-6">
               <div className="space-y-2 text-center">
-                <h2 className="text-2xl font-bold text-foreground">مرحباً بعودتك</h2>
+                <h2 className="text-2xl font-bold text-foreground">Welcome Back</h2>
                 <p className="text-muted-foreground">
-                  سجل دخولك للمتابعة
+                  Sign in to continue
                 </p>
               </div>
 
               <form onSubmit={handleLogin} className="space-y-6">
                 <div className="space-y-2">
-                  <Label htmlFor="email">البريد الإلكتروني</Label>
+                  <Label htmlFor="email">Email</Label>
                   <Input
                     id="email"
                     type="email"
@@ -155,12 +155,11 @@ export default function Login() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     className="h-12"
-                    dir="ltr"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="password">كلمة المرور</Label>
+                  <Label htmlFor="password">Password</Label>
                   <div className="relative">
                     <Input
                       id="password"
@@ -170,7 +169,6 @@ export default function Login() {
                       onChange={(e) => setPassword(e.target.value)}
                       required
                       className="h-12 pr-12"
-                      dir="ltr"
                     />
                     <button
                       type="button"
@@ -194,10 +192,10 @@ export default function Login() {
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      جاري تسجيل الدخول...
+                      Signing in...
                     </>
                   ) : (
-                    'تسجيل الدخول'
+                    'Sign In'
                   )}
                 </Button>
               </form>
@@ -205,19 +203,19 @@ export default function Login() {
 
             <TabsContent value="signup" className="space-y-6 mt-6">
               <div className="space-y-2 text-center">
-                <h2 className="text-2xl font-bold text-foreground">إنشاء حساب جديد</h2>
+                <h2 className="text-2xl font-bold text-foreground">Create an Account</h2>
                 <p className="text-muted-foreground">
-                  أنشئ حسابك للبدء
+                  Sign up to get started
                 </p>
               </div>
 
               <form onSubmit={handleSignup} className="space-y-6">
                 <div className="space-y-2">
-                  <Label htmlFor="fullName">الاسم الكامل</Label>
+                  <Label htmlFor="fullName">Full Name</Label>
                   <Input
                     id="fullName"
                     type="text"
-                    placeholder="أحمد محمد"
+                    placeholder="John Doe"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     required
@@ -226,7 +224,7 @@ export default function Login() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="signupEmail">البريد الإلكتروني</Label>
+                  <Label htmlFor="signupEmail">Email</Label>
                   <Input
                     id="signupEmail"
                     type="email"
@@ -235,12 +233,11 @@ export default function Login() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     className="h-12"
-                    dir="ltr"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="signupPassword">كلمة المرور</Label>
+                  <Label htmlFor="signupPassword">Password</Label>
                   <div className="relative">
                     <Input
                       id="signupPassword"
@@ -251,7 +248,6 @@ export default function Login() {
                       required
                       minLength={6}
                       className="h-12 pr-12"
-                      dir="ltr"
                     />
                     <button
                       type="button"
@@ -275,10 +271,10 @@ export default function Login() {
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      جاري إنشاء الحساب...
+                      Creating account...
                     </>
                   ) : (
-                    'إنشاء حساب'
+                    'Create Account'
                   )}
                 </Button>
               </form>

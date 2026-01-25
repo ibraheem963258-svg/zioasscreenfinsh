@@ -67,7 +67,7 @@ export function Sidebar() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-sidebar-foreground truncate">
-              {user?.user_metadata?.full_name || 'مسؤول'}
+              {user?.user_metadata?.full_name || 'Admin'}
             </p>
             <p className="text-xs text-muted-foreground truncate">
               {user?.email || 'admin@signage.com'}

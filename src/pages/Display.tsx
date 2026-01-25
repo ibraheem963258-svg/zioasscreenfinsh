@@ -101,7 +101,7 @@ export default function Display() {
       <div className="display-fullscreen flex items-center justify-center bg-black">
         <div className="text-center text-white">
           <div className="w-16 h-16 mx-auto mb-4 border-4 border-white/20 border-t-white rounded-full animate-spin" />
-          <p className="text-xl">جاري التحميل...</p>
+          <p className="text-xl">Loading...</p>
         </div>
       </div>
     );
@@ -111,8 +111,8 @@ export default function Display() {
     return (
       <div className="display-fullscreen flex items-center justify-center bg-gradient-to-br from-gray-900 to-black">
         <div className="text-center text-white">
-          <h1 className="text-4xl font-bold mb-4">الشاشة غير موجودة</h1>
-          <p className="text-xl opacity-80">لم يتم العثور على شاشة بهذا المعرّف: {slug}</p>
+          <h1 className="text-4xl font-bold mb-4">Screen Not Found</h1>
+          <p className="text-xl opacity-80">No screen found with slug: {slug}</p>
         </div>
       </div>
     );
@@ -128,7 +128,7 @@ export default function Display() {
             </svg>
           </div>
           <h1 className="text-3xl font-bold mb-2">{screen.name}</h1>
-          <p className="text-lg opacity-60">لا يوجد محتوى معين لهذه الشاشة</p>
+          <p className="text-lg opacity-60">No content assigned to this screen</p>
         </div>
       </div>
     );
@@ -147,7 +147,7 @@ export default function Display() {
             src={currentContent.url}
             alt={currentContent.name}
             className="w-full h-full object-cover"
-            onError={() => setError('فشل في تحميل الصورة')}
+            onError={() => setError('Failed to load image')}
           />
         ) : (
           <video
@@ -157,7 +157,7 @@ export default function Display() {
             muted
             loop
             playsInline
-            onError={() => setError('فشل في تحميل الفيديو')}
+            onError={() => setError('Failed to load video')}
           />
         )}
       </div>
@@ -183,7 +183,7 @@ export default function Display() {
         <div className="absolute inset-0 flex items-center justify-center bg-black/80">
           <div className="text-center text-white">
             <p className="text-xl">{error}</p>
-            <p className="text-sm opacity-60 mt-2">جاري إعادة المحاولة...</p>
+            <p className="text-sm opacity-60 mt-2">Retrying...</p>
           </div>
         </div>
       )}

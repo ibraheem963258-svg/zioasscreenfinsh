@@ -101,8 +101,8 @@ export default function Schedules() {
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({
-        title: 'خطأ',
-        description: 'فشل في جلب البيانات',
+        title: 'Error',
+        description: 'Failed to fetch data',
         variant: 'destructive',
       });
     } finally {
@@ -111,19 +111,19 @@ export default function Schedules() {
   };
 
   const getContentName = (contentId: string) => {
-    return content.find(c => c.id === contentId)?.name || 'غير معروف';
+    return content.find(c => c.id === contentId)?.name || 'Unknown';
   };
 
   const getTargetName = (targetType: string, targetId: string) => {
     switch (targetType) {
       case 'screen':
-        return screens.find(s => s.id === targetId)?.name || 'شاشة غير معروفة';
+        return screens.find(s => s.id === targetId)?.name || 'Unknown screen';
       case 'group':
-        return groups.find(g => g.id === targetId)?.name || 'مجموعة غير معروفة';
+        return groups.find(g => g.id === targetId)?.name || 'Unknown group';
       case 'branch':
-        return branches.find(b => b.id === targetId)?.name || 'فرع غير معروف';
+        return branches.find(b => b.id === targetId)?.name || 'Unknown branch';
       default:
-        return 'غير معروف';
+        return 'Unknown';
     }
   };
 
@@ -164,13 +164,13 @@ export default function Schedules() {
         s.id === scheduleId ? { ...s, isActive: !currentStatus } : s
       ));
       toast({
-        title: 'تم التحديث',
-        description: 'تم تغيير حالة الجدول.',
+        title: 'Updated',
+        description: 'Schedule status changed.',
       });
     } catch (error) {
       toast({
-        title: 'خطأ',
-        description: 'فشل في تحديث الجدول.',
+        title: 'Error',
+        description: 'Failed to update schedule.',
         variant: 'destructive',
       });
     }
@@ -181,13 +181,13 @@ export default function Schedules() {
       await deleteSchedule(scheduleId);
       setSchedules(prev => prev.filter(s => s.id !== scheduleId));
       toast({
-        title: 'تم الحذف',
-        description: 'تم حذف الجدول.',
+        title: 'Deleted',
+        description: 'Schedule deleted.',
       });
     } catch (error) {
       toast({
-        title: 'خطأ',
-        description: 'فشل في حذف الجدول.',
+        title: 'Error',
+        description: 'Failed to delete schedule.',
         variant: 'destructive',
       });
     }
@@ -196,8 +196,8 @@ export default function Schedules() {
   const handleCreateSchedule = async () => {
     if (!newScheduleName || !newScheduleContent || !newScheduleTargetId || !newScheduleStartDate || !newScheduleEndDate) {
       toast({
-        title: 'خطأ',
-        description: 'الرجاء ملء جميع الحقول المطلوبة.',
+        title: 'Error',
+        description: 'Please fill in all required fields.',
         variant: 'destructive',
       });
       return;
@@ -220,13 +220,13 @@ export default function Schedules() {
       setIsAddOpen(false);
       resetForm();
       toast({
-        title: 'تم الإنشاء',
-        description: 'تم إنشاء الجدول بنجاح.',
+        title: 'Created',
+        description: 'Schedule created successfully.',
       });
     } catch (error) {
       toast({
-        title: 'خطأ',
-        description: 'فشل في إنشاء الجدول.',
+        title: 'Error',
+        description: 'Failed to create schedule.',
         variant: 'destructive',
       });
     } finally {
@@ -267,39 +267,39 @@ export default function Schedules() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">الجداول</h1>
+            <h1 className="text-3xl font-bold text-foreground">Schedules</h1>
             <p className="text-muted-foreground mt-1">
-              إنشاء وإدارة جداول عرض المحتوى
+              Create and manage content display schedules
             </p>
           </div>
           <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
-                إنشاء جدول
+                Create Schedule
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-lg">
               <DialogHeader>
-                <DialogTitle>إنشاء جدول جديد</DialogTitle>
+                <DialogTitle>Create New Schedule</DialogTitle>
                 <DialogDescription>
-                  جدولة عرض المحتوى في أوقات محددة.
+                  Schedule content to display at specific times.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label>اسم الجدول</Label>
+                  <Label>Schedule Name</Label>
                   <Input 
-                    placeholder="مثال: قائمة الإفطار الصباحي" 
+                    placeholder="e.g., Morning Breakfast Menu" 
                     value={newScheduleName}
                     onChange={(e) => setNewScheduleName(e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>المحتوى</Label>
+                  <Label>Content</Label>
                   <Select value={newScheduleContent} onValueChange={setNewScheduleContent}>
                     <SelectTrigger>
-                      <SelectValue placeholder="اختر المحتوى" />
+                      <SelectValue placeholder="Select content" />
                     </SelectTrigger>
                     <SelectContent>
                       {content.map(c => (
@@ -312,26 +312,26 @@ export default function Schedules() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>نوع الهدف</Label>
+                    <Label>Target Type</Label>
                     <Select value={newScheduleTargetType} onValueChange={(v) => {
                       setNewScheduleTargetType(v as 'screen' | 'group' | 'branch');
                       setNewScheduleTargetId('');
                     }}>
                       <SelectTrigger>
-                        <SelectValue placeholder="اختر النوع" />
+                        <SelectValue placeholder="Select type" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="screen">شاشة واحدة</SelectItem>
-                        <SelectItem value="group">مجموعة شاشات</SelectItem>
-                        <SelectItem value="branch">فرع</SelectItem>
+                        <SelectItem value="screen">Single Screen</SelectItem>
+                        <SelectItem value="group">Screen Group</SelectItem>
+                        <SelectItem value="branch">Branch</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>الهدف</Label>
+                    <Label>Target</Label>
                     <Select value={newScheduleTargetId} onValueChange={setNewScheduleTargetId}>
                       <SelectTrigger>
-                        <SelectValue placeholder="اختر الهدف" />
+                        <SelectValue placeholder="Select target" />
                       </SelectTrigger>
                       <SelectContent>
                         {getTargetOptions().map(option => (
@@ -345,7 +345,7 @@ export default function Schedules() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>تاريخ البدء</Label>
+                    <Label>Start Date</Label>
                     <Input 
                       type="date" 
                       value={newScheduleStartDate}
@@ -353,7 +353,7 @@ export default function Schedules() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>تاريخ الانتهاء</Label>
+                    <Label>End Date</Label>
                     <Input 
                       type="date" 
                       value={newScheduleEndDate}
@@ -363,7 +363,7 @@ export default function Schedules() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>وقت البدء</Label>
+                    <Label>Start Time</Label>
                     <Input 
                       type="time" 
                       value={newScheduleStartTime}
@@ -371,7 +371,7 @@ export default function Schedules() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>وقت الانتهاء</Label>
+                    <Label>End Time</Label>
                     <Input 
                       type="time" 
                       value={newScheduleEndTime}
@@ -380,7 +380,7 @@ export default function Schedules() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>الأولوية (1-10)</Label>
+                  <Label>Priority (1-10)</Label>
                   <Input 
                     type="number" 
                     min={1} 
@@ -389,13 +389,13 @@ export default function Schedules() {
                     onChange={(e) => setNewSchedulePriority(e.target.value)}
                   />
                   <p className="text-xs text-muted-foreground">
-                    الجداول ذات الأولوية الأعلى تتجاوز الأولويات الأقل.
+                    Higher priority schedules override lower priority ones.
                   </p>
                 </div>
               </div>
               <Button className="w-full" onClick={handleCreateSchedule} disabled={isSaving}>
                 {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                إنشاء الجدول
+                Create Schedule
               </Button>
             </DialogContent>
           </Dialog>
@@ -405,7 +405,7 @@ export default function Schedules() {
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="بحث في الجداول..."
+            placeholder="Search schedules..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -420,7 +420,7 @@ export default function Schedules() {
             </div>
             <div>
               <p className="text-2xl font-bold text-foreground">{schedules.length}</p>
-              <p className="text-sm text-muted-foreground">إجمالي الجداول</p>
+              <p className="text-sm text-muted-foreground">Total Schedules</p>
             </div>
           </div>
           <div className="stat-card flex items-center gap-4">
@@ -431,7 +431,7 @@ export default function Schedules() {
               <p className="text-2xl font-bold text-foreground">
                 {schedules.filter(s => s.isActive).length}
               </p>
-              <p className="text-sm text-muted-foreground">نشط</p>
+              <p className="text-sm text-muted-foreground">Active</p>
             </div>
           </div>
           <div className="stat-card flex items-center gap-4">
@@ -442,7 +442,7 @@ export default function Schedules() {
               <p className="text-2xl font-bold text-foreground">
                 {schedules.filter(s => !s.isActive).length}
               </p>
-              <p className="text-sm text-muted-foreground">متوقف</p>
+              <p className="text-sm text-muted-foreground">Paused</p>
             </div>
           </div>
         </div>
@@ -451,9 +451,9 @@ export default function Schedules() {
         {filteredSchedules.length === 0 ? (
           <div className="text-center py-12 stat-card">
             <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-foreground">لا توجد جداول</h3>
+            <h3 className="text-lg font-semibold text-foreground">No schedules found</h3>
             <p className="text-muted-foreground mt-1">
-              أنشئ أول جدول للبدء.
+              Create your first schedule to get started.
             </p>
           </div>
         ) : (
@@ -482,7 +482,7 @@ export default function Schedules() {
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-foreground">{schedule.name}</h3>
                       <p className="text-sm text-muted-foreground">
-                        المحتوى: {getContentName(schedule.contentId)}
+                        Content: {getContentName(schedule.contentId)}
                       </p>
                     </div>
                   </div>
@@ -503,14 +503,14 @@ export default function Schedules() {
                     </div>
 
                     <Badge variant="secondary">
-                      أولوية: {schedule.priority}
+                      Priority: {schedule.priority}
                     </Badge>
 
                     <Badge 
                       variant={schedule.isActive ? "default" : "secondary"}
                       className={schedule.isActive ? "bg-success/20 text-success border-success/30" : ""}
                     >
-                      {schedule.isActive ? "نشط" : "متوقف"}
+                      {schedule.isActive ? "Active" : "Paused"}
                     </Badge>
 
                     <Switch
@@ -530,7 +530,7 @@ export default function Schedules() {
                           onClick={() => handleDelete(schedule.id)}
                         >
                           <Trash2 className="h-4 w-4 mr-2" />
-                          حذف
+                          Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
