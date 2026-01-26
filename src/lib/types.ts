@@ -13,6 +13,10 @@ export interface ScreenGroup {
   createdAt: Date;
 }
 
+/**
+ * واجهة الشاشة
+ * Screen Interface
+ */
 export interface Screen {
   id: string;
   name: string;
@@ -27,6 +31,10 @@ export interface Screen {
   lastUpdated: Date;
   contentIds: string[];
   currentPlaylistId: string | null;
+  /** رابط البث المباشر (HLS/m3u8) */
+  liveStreamUrl?: string | null;
+  /** هل البث المباشر مفعل - يأخذ الأولوية على Playlist */
+  liveStreamEnabled?: boolean;
 }
 
 export interface ContentItem {

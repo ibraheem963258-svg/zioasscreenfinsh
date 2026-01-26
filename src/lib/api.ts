@@ -112,6 +112,7 @@ export async function getScreens(): Promise<Screen[]> {
     const isOnline = s.status === 'online';
     let status: 'online' | 'offline' | 'idle' = s.status as 'online' | 'offline';
     
+    // تحديد إذا كانت الشاشة في وضع idle (متصلة لكن بدون playlist نشطة)
     // Determine if screen is idle (online but no active playlist)
     if (isOnline && !hasActivePlaylist) {
       status = 'idle';
@@ -131,6 +132,10 @@ export async function getScreens(): Promise<Screen[]> {
       lastUpdated: new Date(s.updated_at),
       contentIds: contentAssignments.filter(c => c.target_id === s.id).map(c => c.content_id),
       currentPlaylistId: s.current_playlist_id,
+      // حقول البث المباشر
+      // Live stream fields
+      liveStreamUrl: (s as any).live_stream_url || null,
+      liveStreamEnabled: (s as any).live_stream_enabled || false,
     };
   });
 }

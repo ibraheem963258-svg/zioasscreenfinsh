@@ -1,3 +1,10 @@
+/**
+ * ======================================
+ * المكون الرئيسي للتطبيق
+ * Main App Component
+ * ======================================
+ */
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -13,6 +20,7 @@ import Playlists from "./pages/Playlists";
 import Schedules from "./pages/Schedules";
 import Settings from "./pages/Settings";
 import Display from "./pages/Display";
+import Users from "./pages/Users";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,6 +41,7 @@ const App = () => (
             <Route path="/playlists" element={<Playlists />} />
             <Route path="/schedules" element={<Schedules />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/users" element={<Users />} />
             <Route path="/display/:slug" element={<Display />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

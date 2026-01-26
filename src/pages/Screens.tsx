@@ -1,3 +1,10 @@
+/**
+ * ======================================
+ * صفحة إدارة الشاشات
+ * Screens Management Page
+ * ======================================
+ */
+
 import { useState, useEffect } from 'react';
 import { 
   Monitor, 
@@ -20,7 +27,8 @@ import {
   CirclePause,
   ListMusic,
   Settings,
-  Clock
+  Clock,
+  Radio
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
@@ -80,6 +88,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { PlaylistManager } from '@/components/playlists/PlaylistManager';
 import { DisplaySettingsDialog } from '@/components/settings/DisplaySettingsDialog';
+import { LiveStreamDialog } from '@/components/screens/LiveStreamDialog';
 
 export default function Screens() {
   const [screens, setScreens] = useState<Screen[]>([]);
@@ -816,6 +825,23 @@ export default function Screens() {
                               <ListMusic className="h-4 w-4 mr-1" />
                               Playlists
                             </Button>
+                            {/* زر البث المباشر */}
+                            <LiveStreamDialog
+                              screenId={screen.id}
+                              screenName={screen.name}
+                              currentUrl={screen.liveStreamUrl}
+                              isEnabled={screen.liveStreamEnabled}
+                              onUpdate={fetchData}
+                              trigger={
+                                <Button 
+                                  variant={screen.liveStreamEnabled ? "default" : "outline"} 
+                                  size="sm"
+                                  className={screen.liveStreamEnabled ? "bg-destructive hover:bg-destructive/90" : ""}
+                                >
+                                  <Radio className="h-4 w-4" />
+                                </Button>
+                              }
+                            />
                             <DisplaySettingsDialog
                               targetType="screen"
                               targetId={screen.id}
