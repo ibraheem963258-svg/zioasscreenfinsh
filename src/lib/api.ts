@@ -62,7 +62,11 @@ export async function getScreenGroups(): Promise<ScreenGroup[]> {
 export async function createScreenGroup(name: string, description: string, branchId: string): Promise<ScreenGroup> {
   const { data, error } = await supabase
     .from('screen_groups')
-    .insert({ name, description, branch_id: branchId })
+    .insert({ 
+      name, 
+      description, 
+      branch_id: branchId || null // Allow null branch for cross-branch groups
+    })
     .select()
     .single();
   
