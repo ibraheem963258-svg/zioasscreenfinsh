@@ -33,6 +33,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -86,6 +87,8 @@ import { useToast } from '@/hooks/use-toast';
 import { PlaylistManager } from '@/components/playlists/PlaylistManager';
 import { DisplaySettingsDialog } from '@/components/settings/DisplaySettingsDialog';
 import { ScreenGroupsSelect } from '@/components/screens/ScreenGroupsSelect';
+import { GroupScreensSelect } from '@/components/groups/GroupScreensSelect';
+import { GroupPlaylistManager } from '@/components/groups/GroupPlaylistManager';
 
 export default function Screens() {
   const [screens, setScreens] = useState<Screen[]>([]);
@@ -342,10 +345,10 @@ export default function Screens() {
   };
 
   const handleCreateGroup = async () => {
-    if (!newGroupName || !newGroupBranch) {
+    if (!newGroupName) {
       toast({
         title: 'Error',
-        description: 'Please fill in all required fields.',
+        description: 'Please enter a group name.',
         variant: 'destructive',
       });
       return;
@@ -353,7 +356,8 @@ export default function Screens() {
 
     setIsSaving(true);
     try {
-      const newGroup = await createScreenGroup(newGroupName, newGroupDescription, newGroupBranch);
+      // Branch is now optional - pass empty string if not selected
+      const newGroup = await createScreenGroup(newGroupName, newGroupDescription, newGroupBranch || '');
       setGroups(prev => [newGroup, ...prev]);
       setIsAddGroupOpen(false);
       setNewGroupName('');
@@ -361,7 +365,7 @@ export default function Screens() {
       setNewGroupBranch('');
       toast({
         title: 'Created',
-        description: 'Group created successfully.',
+        description: 'Group created successfully. You can now add screens from any branch.',
       });
     } catch (error) {
       toast({
@@ -489,12 +493,12 @@ export default function Screens() {
                 <DialogHeader>
                   <DialogTitle>Add New Group</DialogTitle>
                   <DialogDescription>
-                    Create a screen group to organize displays.
+                    Create a screen group to control content across multiple screens from any branch.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
-                    <Label>Group Name</Label>
+                    <Label>Group Name *</Label>
                     <Input 
                       placeholder="e.g., Menu Displays" 
                       value={newGroupName}
@@ -503,19 +507,21 @@ export default function Screens() {
                   </div>
                   <div className="space-y-2">
                     <Label>Description</Label>
-                    <Input 
-                      placeholder="e.g., Digital menu screens" 
+                    <Textarea 
+                      placeholder="e.g., All digital menu screens across locations" 
                       value={newGroupDescription}
                       onChange={(e) => setNewGroupDescription(e.target.value)}
+                      rows={2}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Branch</Label>
+                    <Label>Default Branch (Optional)</Label>
                     <Select value={newGroupBranch} onValueChange={setNewGroupBranch}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select branch" />
+                        <SelectValue placeholder="No branch restriction" />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="">No branch restriction</SelectItem>
                         {branches.map(branch => (
                           <SelectItem key={branch.id} value={branch.id}>
                             {branch.name}
@@ -523,6 +529,9 @@ export default function Screens() {
                         ))}
                       </SelectContent>
                     </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Groups can contain screens from any branch regardless of this setting.
+                    </p>
                   </div>
                 </div>
                 <Button className="w-full" onClick={handleCreateGroup} disabled={isSaving}>
@@ -931,13 +940,16 @@ export default function Screens() {
                 <Layers className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-foreground">No groups found</h3>
                 <p className="text-muted-foreground mt-1">
-                  Create your first group to get started.
+                  Create your first group to control content across multiple screens.
                 </p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {groups.map((group) => {
                   const groupScreens = screens.filter(s => s.groupIds.includes(group.id));
+                  const onlineCount = groupScreens.filter(s => s.status === 'online').length;
+                  const idleCount = groupScreens.filter(s => s.status === 'idle').length;
+                  const offlineCount = groupScreens.filter(s => s.status === 'offline').length;
                   
                   return (
                     <div key={group.id} className="stat-card">
@@ -946,9 +958,11 @@ export default function Screens() {
                           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-warning/20">
                             <Layers className="h-5 w-5 text-warning" />
                           </div>
-                          <div>
+                          <div className="flex-1 min-w-0">
                             <h3 className="font-semibold text-foreground">{group.name}</h3>
-                            <p className="text-sm text-muted-foreground">{group.description}</p>
+                            {group.description && (
+                              <p className="text-sm text-muted-foreground truncate">{group.description}</p>
+                            )}
                           </div>
                         </div>
                         <DropdownMenu>
@@ -969,15 +983,49 @@ export default function Screens() {
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
-                      <div className="pt-3 border-t border-border">
-                        <div className="flex justify-between mb-3">
-                          <span className="text-muted-foreground text-sm">Screens in group</span>
-                          <span className="font-semibold">{groupScreens.length}</span>
+
+                      {/* Screen Stats */}
+                      <div className="grid grid-cols-4 gap-2 py-3 border-t border-b border-border mb-4">
+                        <div className="text-center">
+                          <p className="text-lg font-bold text-foreground">{groupScreens.length}</p>
+                          <p className="text-xs text-muted-foreground">Total</p>
                         </div>
-                        <div className="flex justify-between mb-3">
-                          <span className="text-muted-foreground text-sm">Branch</span>
-                          <span className="text-sm">{getBranchName(group.branchId)}</span>
+                        <div className="text-center">
+                          <p className="text-lg font-bold text-success">{onlineCount}</p>
+                          <p className="text-xs text-muted-foreground">Online</p>
                         </div>
+                        <div className="text-center">
+                          <p className="text-lg font-bold text-warning">{idleCount}</p>
+                          <p className="text-xs text-muted-foreground">Idle</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-lg font-bold text-destructive">{offlineCount}</p>
+                          <p className="text-xs text-muted-foreground">Offline</p>
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="space-y-2">
+                        {/* Assign Screens */}
+                        <GroupScreensSelect
+                          groupId={group.id}
+                          screens={screens}
+                          branches={branches}
+                          onUpdate={(screenIds) => {
+                            // Refresh screens to update groupIds
+                            fetchData();
+                          }}
+                        />
+
+                        {/* Content Control - Playlist Manager */}
+                        <GroupPlaylistManager
+                          groupId={group.id}
+                          groupName={group.name}
+                          screenCount={groupScreens.length}
+                          onPlaylistChange={fetchData}
+                        />
+
+                        {/* Display Settings */}
                         <DisplaySettingsDialog
                           targetType="group"
                           targetId={group.id}
