@@ -3,9 +3,6 @@
  * صفحة تسجيل الدخول
  * Login Page
  * ======================================
- * 
- * تم إزالة خيار إنشاء حساب جديد (Sign Up)
- * يتم إنشاء المستخدمين من داخل النظام فقط عبر لوحة تحكم Admin
  */
 
 import { useState } from 'react';
@@ -18,16 +15,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Login() {
-  // ======================================
-  // الحالات
-  // States
-  // ======================================
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
   
-  const { login, isAuthenticated } = useAuth();
+  const { login, signup, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -35,29 +30,46 @@ export default function Login() {
     return <Navigate to="/dashboard" replace />;
   }
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      const result = await login(email, password);
-      if (result.success) {
-        toast({
-          title: 'Welcome!',
-          description: 'You have successfully logged in.',
-        });
-        navigate('/dashboard');
+      if (isSignUp) {
+        const result = await signup(email, password, fullName);
+        if (result.success) {
+          toast({
+            title: 'تم إنشاء الحساب!',
+            description: 'تم تسجيلك بنجاح.',
+          });
+          navigate('/dashboard');
+        } else {
+          toast({
+            title: 'فشل التسجيل',
+            description: result.error || 'حدث خطأ أثناء التسجيل.',
+            variant: 'destructive',
+          });
+        }
       } else {
-        toast({
-          title: 'Login failed',
-          description: result.error || 'Invalid email or password.',
-          variant: 'destructive',
-        });
+        const result = await login(email, password);
+        if (result.success) {
+          toast({
+            title: 'مرحباً!',
+            description: 'تم تسجيل الدخول بنجاح.',
+          });
+          navigate('/dashboard');
+        } else {
+          toast({
+            title: 'فشل تسجيل الدخول',
+            description: result.error || 'البريد الإلكتروني أو كلمة المرور غير صحيحة.',
+            variant: 'destructive',
+          });
+        }
       }
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'An error occurred. Please try again.',
+        title: 'خطأ',
+        description: 'حدث خطأ. يرجى المحاولة مرة أخرى.',
         variant: 'destructive',
       });
     } finally {
@@ -65,10 +77,6 @@ export default function Login() {
     }
   };
 
-  // ======================================
-  // العرض الرئيسي
-  // Main Render
-  // ======================================
   return (
     <div className="min-h-screen flex">
       {/* Left side - Branding */}
@@ -81,21 +89,21 @@ export default function Login() {
           </div>
           <h1 className="text-4xl font-bold gradient-text mb-4">SignageHub</h1>
           <p className="text-lg text-muted-foreground mb-8">
-            Professional digital signage management system for modern businesses.
-            Control your screens, content, and schedules from one powerful platform.
+            نظام إدارة اللافتات الرقمية الاحترافي للشركات الحديثة.
+            تحكم في شاشاتك ومحتواك وجداولك من منصة واحدة قوية.
           </p>
           <div className="grid grid-cols-3 gap-4 text-center">
             <div className="p-4 rounded-lg bg-card/50 border border-border">
               <p className="text-2xl font-bold text-primary">70+</p>
-              <p className="text-sm text-muted-foreground">Screens</p>
+              <p className="text-sm text-muted-foreground">شاشة</p>
             </div>
             <div className="p-4 rounded-lg bg-card/50 border border-border">
               <p className="text-2xl font-bold text-success">99.9%</p>
-              <p className="text-sm text-muted-foreground">Uptime</p>
+              <p className="text-sm text-muted-foreground">وقت التشغيل</p>
             </div>
             <div className="p-4 rounded-lg bg-card/50 border border-border">
               <p className="text-2xl font-bold text-warning">24/7</p>
-              <p className="text-sm text-muted-foreground">Support</p>
+              <p className="text-sm text-muted-foreground">دعم</p>
             </div>
           </div>
         </div>
@@ -113,29 +121,38 @@ export default function Login() {
             <h1 className="text-2xl font-bold gradient-text">SignageHub</h1>
           </div>
 
-          {/* 
-            ======================================
-            نموذج تسجيل الدخول فقط
-            Login Form Only (Sign Up removed)
-            ======================================
-            تم إزالة خيار إنشاء حساب جديد
-            يتم إنشاء المستخدمين من داخل النظام فقط عبر لوحة تحكم Admin
-          */}
           <div className="space-y-6">
             <div className="space-y-2 text-center">
-              <h2 className="text-2xl font-bold text-foreground">Welcome Back</h2>
+              <h2 className="text-2xl font-bold text-foreground">
+                {isSignUp ? 'إنشاء حساب جديد' : 'مرحباً بعودتك'}
+              </h2>
               <p className="text-muted-foreground">
-                Sign in to continue
+                {isSignUp ? 'أدخل بياناتك لإنشاء حساب' : 'سجل دخولك للمتابعة'}
               </p>
             </div>
 
-            <form onSubmit={handleLogin} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {isSignUp && (
+                <div className="space-y-2">
+                  <Label htmlFor="fullName">الاسم الكامل</Label>
+                  <Input
+                    id="fullName"
+                    type="text"
+                    placeholder="يوسف طرادة"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    required
+                    className="h-12"
+                  />
+                </div>
+              )}
+
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">البريد الإلكتروني</Label>
                 <Input
                   id="email"
                   type="email"
-                  placeholder="admin@example.com"
+                  placeholder="yousef@gmail.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -144,7 +161,7 @@ export default function Login() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">كلمة المرور</Label>
                 <div className="relative">
                   <Input
                     id="password"
@@ -177,18 +194,23 @@ export default function Login() {
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Signing in...
+                    {isSignUp ? 'جاري التسجيل...' : 'جاري تسجيل الدخول...'}
                   </>
                 ) : (
-                  'Sign In'
+                  isSignUp ? 'إنشاء حساب' : 'تسجيل الدخول'
                 )}
               </Button>
             </form>
 
-            {/* رسالة للمستخدمين الجدد */}
-            <p className="text-center text-sm text-muted-foreground">
-              للحصول على حساب جديد، يرجى التواصل مع مدير النظام
-            </p>
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => setIsSignUp(!isSignUp)}
+                className="text-sm text-primary hover:underline"
+              >
+                {isSignUp ? 'لديك حساب؟ سجل دخولك' : 'ليس لديك حساب؟ أنشئ حساب جديد'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
