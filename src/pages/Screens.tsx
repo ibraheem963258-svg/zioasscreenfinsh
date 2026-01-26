@@ -85,6 +85,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { PlaylistManager } from '@/components/playlists/PlaylistManager';
 import { DisplaySettingsDialog } from '@/components/settings/DisplaySettingsDialog';
+import { ScreenGroupsSelect } from '@/components/screens/ScreenGroupsSelect';
 
 export default function Screens() {
   const [screens, setScreens] = useState<Screen[]>([]);
@@ -765,12 +766,17 @@ export default function Screens() {
                           </Badge>
                         </div>
 
-                        <div className="flex flex-wrap gap-1">
-                          {getGroupNames(screen.groupIds).map((name, idx) => (
-                            <Badge key={idx} variant="outline" className="text-xs">
-                              {name}
-                            </Badge>
-                          ))}
+                        <div className="flex flex-wrap gap-1 items-center">
+                          <ScreenGroupsSelect
+                            screenId={screen.id}
+                            currentGroupIds={screen.groupIds}
+                            groups={groups}
+                            onUpdate={(newGroupIds) => {
+                              setScreens(prev => prev.map(s =>
+                                s.id === screen.id ? { ...s, groupIds: newGroupIds } : s
+                              ));
+                            }}
+                          />
                         </div>
 
                         <div className="pt-3 border-t border-border space-y-2">
