@@ -38,7 +38,6 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
-import { ar } from 'date-fns/locale';
 
 type FilterStatus = 'all' | 'active' | 'inactive';
 type FilterTarget = 'all' | 'screen' | 'group' | 'branch';
@@ -86,7 +85,6 @@ export default function Playlists() {
     fetchPlaylists();
     fetchTargetNames();
 
-    // Real-time subscription
     const channel = supabase
       .channel('playlists-page')
       .on(
@@ -281,7 +279,7 @@ export default function Playlists() {
                     </TableCell>
                     <TableCell>{playlist.items.length} items</TableCell>
                     <TableCell className="text-muted-foreground text-sm">
-                      {formatDistanceToNow(playlist.createdAt, { addSuffix: true, locale: ar })}
+                      {formatDistanceToNow(playlist.createdAt, { addSuffix: true })}
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>

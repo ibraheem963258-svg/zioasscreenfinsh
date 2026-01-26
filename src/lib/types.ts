@@ -14,7 +14,6 @@ export interface ScreenGroup {
 }
 
 /**
- * واجهة الشاشة
  * Screen Interface
  */
 export interface Screen {
@@ -31,10 +30,6 @@ export interface Screen {
   lastUpdated: Date;
   contentIds: string[];
   currentPlaylistId: string | null;
-  /** رابط البث المباشر (HLS/m3u8) */
-  liveStreamUrl?: string | null;
-  /** هل البث المباشر مفعل - يأخذ الأولوية على Playlist */
-  liveStreamEnabled?: boolean;
 }
 
 export interface ContentItem {
@@ -43,7 +38,7 @@ export interface ContentItem {
   type: 'image' | 'video';
   url: string;
   thumbnailUrl: string;
-  duration?: number; // in seconds, for videos or image display time
+  duration?: number;
   fileSize: number;
   uploadedAt: Date;
 }
@@ -89,7 +84,7 @@ export interface Schedule {
   targetId: string;
   startDate: Date;
   endDate: Date;
-  startTime: string; // HH:mm format
+  startTime: string;
   endTime: string;
   priority: number;
   isActive: boolean;
