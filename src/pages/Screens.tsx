@@ -516,12 +516,15 @@ export default function Screens() {
                   </div>
                   <div className="space-y-2">
                     <Label>Default Branch (Optional)</Label>
-                    <Select value={newGroupBranch} onValueChange={setNewGroupBranch}>
+                    <Select 
+                      value={newGroupBranch || "__none__"} 
+                      onValueChange={(val) => setNewGroupBranch(val === "__none__" ? "" : val)}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="No branch restriction" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">No branch restriction</SelectItem>
+                        <SelectItem value="__none__">No branch restriction</SelectItem>
                         {branches.map(branch => (
                           <SelectItem key={branch.id} value={branch.id}>
                             {branch.name}
