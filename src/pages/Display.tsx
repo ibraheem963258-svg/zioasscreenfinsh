@@ -1,3 +1,17 @@
+/**
+ * ======================================
+ * صفحة عرض الشاشة
+ * Display Page
+ * ======================================
+ * 
+ * الوظائف:
+ *   - عرض المحتوى على الشاشات الخارجية (TV, Android TV, Smart TV)
+ *   - دعم البث المباشر (HLS/m3u8) مع أولوية على Playlist
+ *   - ملء الشاشة التلقائي
+ *   - إعادة الاتصال الذكية بدون reload
+ *   - تحديث المحتوى في الوقت الفعلي
+ */
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { updateScreenStatus } from '@/lib/api';
@@ -5,34 +19,66 @@ import { getActivePlaylistForScreen, getEffectiveDisplaySettings } from '@/lib/a
 import { supabase } from '@/integrations/supabase/client';
 import { Screen, ContentItem, Playlist, DisplaySettings } from '@/lib/types';
 import { ContentRenderer } from '@/components/display/ContentRenderer';
+import { LiveStreamRenderer } from '@/components/display/LiveStreamRenderer';
 import { LoadingScreen } from '@/components/display/LoadingScreen';
 import { ErrorScreen } from '@/components/display/ErrorScreen';
 import { IdleScreen } from '@/components/display/IdleScreen';
 import { PausedScreen } from '@/components/display/PausedScreen';
 import { PlaylistTransition } from '@/components/display/PlaylistTransition';
-// Connection status component
-function ConnectionStatus({ isOnline, isReconnecting }: { isOnline: boolean; isReconnecting: boolean }) {
-  if (isOnline && !isReconnecting) return null;
+import { useFullscreen } from '@/hooks/useFullscreen';
+import { useReconnection, ConnectionStatus } from '@/hooks/useReconnection';
+
+// ======================================
+// مكون حالة الاتصال
+// Connection Status Component
+// ======================================
+function ConnectionStatusIndicator({ 
+  status, 
+  attempts 
+}: { 
+  status: ConnectionStatus; 
+  attempts: number;
+}) {
+  // إخفاء المكون إذا كان متصل
+  if (status === 'connected') return null;
   
   return (
     <div className="fixed top-4 right-4 z-50 flex items-center gap-2 bg-background/90 backdrop-blur px-4 py-2 rounded-lg shadow-lg border">
-      {isReconnecting ? (
+      {status === 'reconnecting' && (
         <>
           <div className="w-3 h-3 bg-warning rounded-full animate-pulse" />
-          <span className="text-sm text-warning">جاري إعادة الاتصال...</span>
+          <span className="text-sm text-warning">
+            جاري إعادة الاتصال... ({attempts})
+          </span>
         </>
-      ) : (
+      )}
+      {status === 'disconnected' && (
         <>
           <div className="w-3 h-3 bg-destructive rounded-full" />
           <span className="text-sm text-destructive">غير متصل</span>
+        </>
+      )}
+      {status === 'failed' && (
+        <>
+          <div className="w-3 h-3 bg-destructive rounded-full" />
+          <span className="text-sm text-destructive">فشل الاتصال - جاري إعادة التحميل</span>
         </>
       )}
     </div>
   );
 }
 
+// ======================================
+// المكون الرئيسي
+// Main Component
+// ======================================
 export default function Display() {
   const { slug } = useParams<{ slug: string }>();
+  
+  // ======================================
+  // الحالات الرئيسية
+  // Main States
+  // ======================================
   const [screen, setScreen] = useState<Screen | null>(null);
   const [playlist, setPlaylist] = useState<Playlist | null>(null);
   const [content, setContent] = useState<ContentItem[]>([]);
@@ -41,28 +87,51 @@ export default function Display() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Connection state
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [isReconnecting, setIsReconnecting] = useState(false);
+  // ======================================
+  // حالات البث المباشر
+  // Live Stream States
+  // ======================================
+  const [liveStreamUrl, setLiveStreamUrl] = useState<string | null>(null);
+  const [liveStreamEnabled, setLiveStreamEnabled] = useState(false);
+
+  // ======================================
+  // حالات الانتقال بين Playlists
+  // Playlist Transition States
+  // ======================================
   const [isPlaylistTransitioning, setIsPlaylistTransitioning] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState<string>('');
   const pendingPlaylistRef = useRef<{ playlist: Playlist | null; content: ContentItem[] } | null>(null);
   const currentPlaylistIdRef = useRef<string | null>(null);
-  const reconnectAttempts = useRef(0);
-  const maxReconnectAttempts = 10;
+  
+  // ======================================
+  // مراجع القنوات
+  // Channel Refs
+  // ======================================
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
-  // Keep playlist ID ref in sync
+  // ======================================
+  // استخدام Hooks المخصصة
+  // Custom Hooks
+  // ======================================
+  const { enterFullscreen } = useFullscreen();
+
+  // ======================================
+  // مزامنة مرجع Playlist ID
+  // Sync Playlist ID Ref
+  // ======================================
   useEffect(() => {
     currentPlaylistIdRef.current = playlist?.id || null;
   }, [playlist?.id]);
 
-  // Fetch screen and content data
+  // ======================================
+  // جلب بيانات الشاشة والمحتوى
+  // Fetch Screen and Content Data
+  // ======================================
   const fetchData = useCallback(async () => {
     if (!slug) return;
 
     try {
-      // Get screen by slug
+      // جلب الشاشة بواسطة الـ slug
       const { data: screenData, error: screenError } = await supabase
         .from('screens')
         .select('*')
@@ -72,12 +141,12 @@ export default function Display() {
       if (screenError) throw screenError;
       if (!screenData) {
         setScreen(null);
-        setError('Screen not found');
+        setError('الشاشة غير موجودة');
         setIsLoading(false);
         return;
       }
 
-      // Get group assignments
+      // جلب مجموعات الشاشة
       const { data: groupAssignments } = await supabase
         .from('screen_group_assignments')
         .select('group_id')
@@ -85,6 +154,7 @@ export default function Display() {
 
       const groupIds = groupAssignments?.map(a => a.group_id) || [];
 
+      // بناء كائن الشاشة
       const screenObj: Screen = {
         id: screenData.id,
         name: screenData.name,
@@ -99,116 +169,138 @@ export default function Display() {
         lastUpdated: new Date(screenData.updated_at),
         contentIds: [],
         currentPlaylistId: screenData.current_playlist_id,
+        // حقول البث المباشر
+        liveStreamUrl: (screenData as any).live_stream_url || null,
+        liveStreamEnabled: (screenData as any).live_stream_enabled || false,
       };
 
       setScreen(screenObj);
       setIsPlaying(screenObj.isPlaying);
+      
+      // تحديث حالة البث المباشر
+      setLiveStreamUrl(screenObj.liveStreamUrl || null);
+      setLiveStreamEnabled(screenObj.liveStreamEnabled || false);
 
-      // Update screen status to online
+      // تحديث حالة الشاشة إلى online
       await updateScreenStatus(screenData.id, 'online');
 
-      // Get active playlist and content
-      const { playlist: activePlaylist, content: playlistContent } = await getActivePlaylistForScreen(screenData.id);
-      setPlaylist(activePlaylist);
-      setContent(playlistContent);
+      // جلب Playlist النشطة والمحتوى (فقط إذا كان البث المباشر غير مفعل)
+      if (!screenObj.liveStreamEnabled) {
+        const { playlist: activePlaylist, content: playlistContent } = await getActivePlaylistForScreen(screenData.id);
+        setPlaylist(activePlaylist);
+        setContent(playlistContent);
 
-      // Update screen's current_playlist_id if there's an active playlist
-      if (activePlaylist) {
-        await supabase
-          .from('screens')
-          .update({ current_playlist_id: activePlaylist.id })
-          .eq('id', screenData.id);
+        // تحديث current_playlist_id للشاشة
+        if (activePlaylist) {
+          await supabase
+            .from('screens')
+            .update({ current_playlist_id: activePlaylist.id })
+            .eq('id', screenData.id);
+        }
       }
 
-      // Get effective display settings
+      // جلب إعدادات العرض
       const effectiveSettings = await getEffectiveDisplaySettings(
         screenData.id,
         groupIds,
         screenData.branch_id
       );
       setSettings(effectiveSettings);
-      
-      // Reset reconnect attempts on successful fetch
-      reconnectAttempts.current = 0;
-      setIsReconnecting(false);
 
     } catch (err) {
-      console.error('Error fetching data:', err);
-      setError('Failed to load content');
+      console.error('خطأ في جلب البيانات:', err);
+      setError('فشل في تحميل المحتوى');
     } finally {
       setIsLoading(false);
     }
   }, [slug]);
 
-  // Handle online/offline status
-  useEffect(() => {
-    const handleOnline = () => {
-      console.log('Network: Online');
-      setIsOnline(true);
-      setIsReconnecting(true);
-      // Retry fetching data
-      fetchData().then(() => {
-        setIsReconnecting(false);
-        // Re-subscribe to realtime
-        setupRealtimeSubscription();
-      });
-    };
+  // ======================================
+  // إعداد إعادة الاتصال الذكية
+  // Setup Smart Reconnection
+  // ======================================
+  const { status: connectionStatus, attempts, resetAttempts } = useReconnection({
+    maxAttempts: 15,
+    onReconnect: async () => {
+      await fetchData();
+      setupRealtimeSubscription();
+    },
+    onDisconnect: () => {
+      console.log('تم قطع الاتصال - سيتم إعادة المحاولة تلقائياً');
+    },
+  });
 
-    const handleOffline = () => {
-      console.log('Network: Offline');
-      setIsOnline(false);
-    };
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, [fetchData]);
-
-  // Setup realtime subscription with reconnection logic
+  // ======================================
+  // إعداد الاشتراك في الوقت الفعلي
+  // Setup Realtime Subscription
+  // ======================================
   const setupRealtimeSubscription = useCallback(() => {
     if (!screen?.id) return;
 
-    // Remove existing channel if any
+    // إزالة القناة القديمة إن وجدت
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
     }
 
-    // Fast content update function with smooth transition - uses ref for current playlist
+    // ======================================
+    // دالة التحديث السريع
+    // Quick Refresh Function
+    // ======================================
     const quickRefresh = async (showTransition = true) => {
       try {
-        console.log('Quick refresh triggered...');
+        console.log('تحديث سريع للمحتوى...');
+        
+        // التحقق من البث المباشر أولاً
+        const { data: screenData } = await supabase
+          .from('screens')
+          .select('live_stream_url, live_stream_enabled, is_playing')
+          .eq('id', screen.id)
+          .single();
+
+        if (screenData) {
+          setLiveStreamUrl((screenData as any).live_stream_url || null);
+          setLiveStreamEnabled((screenData as any).live_stream_enabled || false);
+          setIsPlaying(screenData.is_playing ?? true);
+          
+          // إذا كان البث المباشر مفعل، لا نحتاج تحديث Playlist
+          if ((screenData as any).live_stream_enabled) {
+            return;
+          }
+        }
+
+        // جلب Playlist النشطة
         const { playlist: activePlaylist, content: playlistContent } = await getActivePlaylistForScreen(screen.id);
         
-        // Check if playlist actually changed using ref (always current)
+        // التحقق من تغيير Playlist
         const playlistChanged = activePlaylist?.id !== currentPlaylistIdRef.current;
         
-        console.log('Playlist changed:', playlistChanged, 'New:', activePlaylist?.id, 'Current:', currentPlaylistIdRef.current);
+        console.log('تغير Playlist:', playlistChanged, 'جديد:', activePlaylist?.id, 'حالي:', currentPlaylistIdRef.current);
         
         if (playlistChanged && showTransition && activePlaylist) {
-          // Store pending data and show transition
+          // عرض انتقال Playlist
           pendingPlaylistRef.current = { playlist: activePlaylist, content: playlistContent };
           setNewPlaylistName(activePlaylist.name);
           setIsPlaylistTransitioning(true);
         } else if (playlistChanged) {
-          // No transition, update directly
+          // تحديث مباشر بدون انتقال
           setPlaylist(activePlaylist);
           setContent(playlistContent);
         } else {
-          // Same playlist, just update content (might have new items)
+          // نفس Playlist - تحديث المحتوى فقط
           setContent(playlistContent);
         }
       } catch (err) {
-        console.error('Quick refresh failed:', err);
+        console.error('فشل التحديث السريع:', err);
       }
     };
 
+    // ======================================
+    // إنشاء قناة الاشتراك
+    // Create Subscription Channel
+    // ======================================
     const channel = supabase
       .channel(`display-${screen.id}-realtime-${Date.now()}`)
-      // Screen updates (play/pause, status)
+      // تحديثات الشاشة (تشغيل/إيقاف، البث المباشر)
       .on(
         'postgres_changes',
         {
@@ -218,120 +310,85 @@ export default function Display() {
           filter: `id=eq.${screen.id}`,
         },
         (payload) => {
+          console.log('تحديث الشاشة:', payload.new);
           const updated = payload.new as any;
+          
+          // تحديث حالة التشغيل
           setIsPlaying(updated.is_playing ?? true);
-          // Quick refresh if playlist changed
+          
+          // تحديث البث المباشر
+          setLiveStreamUrl(updated.live_stream_url || null);
+          setLiveStreamEnabled(updated.live_stream_enabled || false);
+          
+          // تحديث Playlist إذا تغيرت
           if (updated.current_playlist_id !== playlist?.id) {
             quickRefresh();
           }
         }
       )
-      // Playlist changes - instant response
+      // تغييرات Playlists
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'playlists',
-        },
-        (payload) => {
-          console.log('Playlist changed:', payload);
-          quickRefresh();
-        }
-      )
-      // Playlist items changes - instant response
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'playlist_items',
-        },
-        (payload) => {
-          console.log('Playlist items changed:', payload);
-          quickRefresh();
-        }
-      )
-      // Display settings changes
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'display_settings',
-        },
+        { event: '*', schema: 'public', table: 'playlists' },
         () => {
+          console.log('تغيير في Playlists');
+          quickRefresh();
+        }
+      )
+      // تغييرات عناصر Playlist
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'playlist_items' },
+        () => {
+          console.log('تغيير في عناصر Playlist');
+          quickRefresh();
+        }
+      )
+      // تغييرات إعدادات العرض
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'display_settings' },
+        () => {
+          console.log('تغيير في إعدادات العرض');
           fetchData();
         }
       )
-      // Content changes - instant response  
+      // تغييرات المحتوى
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'content',
-        },
-        (payload) => {
-          console.log('Content changed:', payload);
+        { event: '*', schema: 'public', table: 'content' },
+        () => {
+          console.log('تغيير في المحتوى');
           quickRefresh();
         }
       )
       .subscribe((status, err) => {
-        console.log('Realtime subscription status:', status);
+        console.log('حالة الاشتراك:', status);
         
         if (status === 'SUBSCRIBED') {
-          reconnectAttempts.current = 0;
-          setIsReconnecting(false);
+          resetAttempts();
         }
         
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error('Realtime error:', err);
-          handleReconnect();
-        }
-        
-        if (status === 'CLOSED') {
-          console.log('Channel closed, attempting reconnect...');
-          handleReconnect();
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          console.error('خطأ في القناة:', err);
         }
       });
 
     channelRef.current = channel;
-  }, [screen?.id, fetchData]);
+  }, [screen?.id, playlist?.id, fetchData, resetAttempts]);
 
-  // Reconnection handler with exponential backoff
-  const handleReconnect = useCallback(() => {
-    if (reconnectAttempts.current >= maxReconnectAttempts) {
-      console.log('Max reconnect attempts reached, reloading page...');
-      window.location.reload();
-      return;
-    }
-
-    setIsReconnecting(true);
-    reconnectAttempts.current += 1;
-    
-    // Exponential backoff: 1s, 2s, 4s, 8s, etc.
-    const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current - 1), 30000);
-    
-    console.log(`Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current}/${maxReconnectAttempts})`);
-    
-    setTimeout(() => {
-      if (navigator.onLine) {
-        fetchData().then(() => {
-          setupRealtimeSubscription();
-        });
-      } else {
-        handleReconnect();
-      }
-    }, delay);
-  }, [fetchData, setupRealtimeSubscription]);
-
-  // Initial fetch
+  // ======================================
+  // الجلب الأولي
+  // Initial Fetch
+  // ======================================
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // Setup realtime subscription when screen is loaded
+  // ======================================
+  // إعداد الاشتراك عند تحميل الشاشة
+  // Setup subscription when screen loads
+  // ======================================
   useEffect(() => {
     if (screen?.id) {
       setupRealtimeSubscription();
@@ -344,7 +401,10 @@ export default function Display() {
     };
   }, [screen?.id, setupRealtimeSubscription]);
 
-  // Heartbeat mechanism with connection check
+  // ======================================
+  // آلية Heartbeat
+  // Heartbeat Mechanism
+  // ======================================
   useEffect(() => {
     if (!screen?.id) return;
 
@@ -354,61 +414,43 @@ export default function Display() {
       try {
         await updateScreenStatus(screen.id, 'online');
       } catch (err) {
-        console.error('Heartbeat failed:', err);
-        // If heartbeat fails, try to reconnect
-        if (navigator.onLine) {
-          handleReconnect();
-        }
+        console.error('فشل Heartbeat:', err);
       }
     };
 
-    // Send heartbeat every 30 seconds
+    // إرسال heartbeat كل 30 ثانية
     const interval = setInterval(heartbeat, 30000);
-
     return () => clearInterval(interval);
-  }, [screen?.id, handleReconnect]);
+  }, [screen?.id]);
 
-  // Enter fullscreen on load
+  // ======================================
+  // تفعيل ملء الشاشة
+  // Enter Fullscreen
+  // ======================================
   useEffect(() => {
-    const enterFullscreen = async () => {
-      try {
-        if (document.documentElement.requestFullscreen) {
-          await document.documentElement.requestFullscreen();
-        }
-      } catch (e) {
-        console.log('Fullscreen not available');
-      }
-    };
-
-    const timer = setTimeout(enterFullscreen, 1000);
+    // محاولة تفعيل ملء الشاشة بعد ثانية
+    const timer = setTimeout(() => {
+      enterFullscreen();
+    }, 1000);
     return () => clearTimeout(timer);
-  }, []);
+  }, [enterFullscreen]);
 
-  // Auto-refresh every 30 minutes for stability (instead of 5 minutes)
+  // ======================================
+  // إعادة التحميل الدورية للاستقرار (كل ساعة بدلاً من 30 دقيقة)
+  // Periodic Reload for Stability (every hour instead of 30 minutes)
+  // ======================================
   useEffect(() => {
     const refreshInterval = setInterval(() => {
       window.location.reload();
-    }, 30 * 60 * 1000);
+    }, 60 * 60 * 1000); // ساعة واحدة
 
     return () => clearInterval(refreshInterval);
   }, []);
 
-  // Visibility change handler - refresh when tab becomes visible
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && navigator.onLine) {
-        console.log('Tab became visible, refreshing data...');
-        fetchData().then(() => {
-          setupRealtimeSubscription();
-        });
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [fetchData, setupRealtimeSubscription]);
-
-  // Handle playlist transition completion - MUST be before early returns
+  // ======================================
+  // معالج انتهاء انتقال Playlist
+  // Handle Playlist Transition End
+  // ======================================
   const handleTransitionEnd = useCallback(() => {
     if (pendingPlaylistRef.current) {
       setPlaylist(pendingPlaylistRef.current.playlist);
@@ -418,23 +460,31 @@ export default function Display() {
     setIsPlaylistTransitioning(false);
   }, []);
 
+  // ======================================
+  // حالات العرض المختلفة
+  // Different Display States
+  // ======================================
+  
+  // حالة التحميل
   if (isLoading) {
-    return <LoadingScreen message="Loading content..." />;
+    return <LoadingScreen message="جاري تحميل المحتوى..." />;
   }
 
+  // الشاشة غير موجودة
   if (!screen) {
     return (
       <ErrorScreen
-        title="Screen Not Found"
-        message={`No screen found with slug: ${slug}`}
+        title="الشاشة غير موجودة"
+        message={`لا توجد شاشة بالمعرّف: ${slug}`}
       />
     );
   }
 
-  if (error && !content.length) {
+  // خطأ وعدم وجود محتوى
+  if (error && !content.length && !liveStreamEnabled) {
     return (
       <ErrorScreen
-        title="Error"
+        title="خطأ"
         message={error}
         showRetry
         onRetry={() => {
@@ -446,31 +496,59 @@ export default function Display() {
     );
   }
 
+  // الشاشة متوقفة
   if (!isPlaying) {
     return <PausedScreen screenName={screen.name} />;
   }
 
-  if (!playlist || content.length === 0) {
+  // لا يوجد محتوى ولا بث مباشر
+  if (!liveStreamEnabled && (!playlist || content.length === 0)) {
     return <IdleScreen screenName={screen.name} />;
   }
 
+  // انتظار الإعدادات
   if (!settings) {
-    return <LoadingScreen message="Loading settings..." />;
+    return <LoadingScreen message="جاري تحميل الإعدادات..." />;
   }
 
+  // ======================================
+  // العرض الرئيسي
+  // Main Render
+  // ======================================
   return (
     <div className="display-fullscreen">
-      <ConnectionStatus isOnline={isOnline} isReconnecting={isReconnecting} />
+      {/* مؤشر حالة الاتصال */}
+      <ConnectionStatusIndicator status={connectionStatus} attempts={attempts} />
+      
+      {/* انتقال Playlist */}
       <PlaylistTransition 
         isTransitioning={isPlaylistTransitioning}
         playlistName={newPlaylistName}
         onTransitionEnd={handleTransitionEnd}
       />
-      <ContentRenderer
-        content={content}
-        settings={settings}
-        isPlaying={isPlaying}
-      />
+      
+      {/* 
+        ======================================
+        البث المباشر له الأولوية على Playlist
+        Live Stream has priority over Playlist
+        ======================================
+      */}
+      {liveStreamEnabled && liveStreamUrl ? (
+        <LiveStreamRenderer
+          streamUrl={liveStreamUrl}
+          contentScaling={settings.contentScaling}
+          onError={(err) => console.error('خطأ في البث المباشر:', err)}
+          onConnectionChange={(connected) => {
+            console.log('حالة البث المباشر:', connected ? 'متصل' : 'غير متصل');
+          }}
+        />
+      ) : (
+        <ContentRenderer
+          content={content}
+          settings={settings}
+          isPlaying={isPlaying}
+        />
+      )}
     </div>
   );
 }

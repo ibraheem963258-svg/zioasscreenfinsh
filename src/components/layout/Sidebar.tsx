@@ -1,3 +1,10 @@
+/**
+ * ======================================
+ * مكون الشريط الجانبي
+ * Sidebar Component
+ * ======================================
+ */
+
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -7,17 +14,23 @@ import {
   Settings,
   LogOut,
   Tv2,
-  ListVideo
+  ListVideo,
+  Users
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
+// ======================================
+// قائمة التنقل
+// Navigation Items
+// ======================================
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Screens', href: '/screens', icon: Monitor },
   { name: 'Content', href: '/content', icon: FolderOpen },
   { name: 'Playlists', href: '/playlists', icon: ListVideo },
   { name: 'Schedules', href: '/schedules', icon: Calendar },
+  { name: 'Users', href: '/users', icon: Users },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
