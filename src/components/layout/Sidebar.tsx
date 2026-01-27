@@ -10,7 +10,6 @@ import {
   LayoutDashboard, 
   Monitor, 
   FolderOpen, 
-  Calendar, 
   Settings,
   LogOut,
   Tv2,
@@ -29,7 +28,6 @@ const navigation = [
   { name: 'Screens', href: '/screens', icon: Monitor },
   { name: 'Content', href: '/content', icon: FolderOpen },
   { name: 'Playlists', href: '/playlists', icon: ListVideo },
-  { name: 'Schedules', href: '/schedules', icon: Calendar },
   { name: 'Users', href: '/users', icon: Users },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
@@ -47,7 +45,7 @@ export function Sidebar() {
             <Tv2 className="h-6 w-6 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-sidebar-foreground">SignageHub</h1>
+            <h1 className="text-lg font-bold text-sidebar-foreground">Zio Als Screen</h1>
             <p className="text-xs text-muted-foreground">Digital Signage</p>
           </div>
         </div>

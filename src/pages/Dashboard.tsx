@@ -4,7 +4,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { ScreenStatusList } from '@/components/dashboard/ScreenStatusList';
 import { QuickActions } from '@/components/dashboard/QuickActions';
-import { RecentActivity } from '@/components/dashboard/RecentActivity';
+
 import { getDashboardStats, getScreens, getBranches } from '@/lib/api';
 import { DashboardStats, Screen, Branch } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -128,7 +128,6 @@ export default function Dashboard() {
           </div>
           <div className="space-y-6">
             <QuickActions />
-            <RecentActivity />
           </div>
         </div>
       </div>
