@@ -2,7 +2,7 @@
  * Multi-select component for assigning a screen to multiple groups
  * Uses dropdown with checkboxes for clear selection
  */
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Check, Layers, Loader2, ChevronDown, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,7 +11,13 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
 import { cn } from '@/lib/utils';
 import { ScreenGroup } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -33,6 +39,7 @@ export function ScreenGroupsSelect({
   const [selectedGroups, setSelectedGroups] = useState<string[]>(currentGroupIds);
   const [isOpen, setIsOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [search, setSearch] = useState('');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -92,6 +99,14 @@ export function ScreenGroupsSelect({
     .map(id => groups.find(g => g.id === id)?.name)
     .filter(Boolean);
 
+  const normalizedQuery = search.trim().toLowerCase();
+  const filteredGroups = useMemo(() => {
+    if (!normalizedQuery) return groups;
+    return groups.filter(g =>
+      `${g.name} ${g.description ?? ''}`.toLowerCase().includes(normalizedQuery)
+    );
+  }, [groups, normalizedQuery]);
+
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
@@ -122,55 +137,52 @@ export function ScreenGroupsSelect({
             Select one or more groups for this screen
           </p>
         </div>
-        <ScrollArea className="max-h-56">
-          {groups.length === 0 ? (
-            <div className="p-4 text-center">
-              <Layers className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">
-                No groups available
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Create a group first
-              </p>
-            </div>
-          ) : (
-            <div className="p-2 space-y-1">
-              {groups.map(group => {
-                const isSelected = selectedGroups.includes(group.id);
-                return (
-                  <div
-                    key={group.id}
-                    className={cn(
-                      "flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer transition-colors",
-                      "hover:bg-accent",
-                      isSelected && "bg-accent"
-                    )}
-                    onClick={() => handleToggleGroup(group.id)}
-                  >
-                    <Checkbox
-                      checked={isSelected}
-                      onCheckedChange={() => handleToggleGroup(group.id)}
-                      className="pointer-events-none"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <span className="text-sm font-medium truncate block">
-                        {group.name}
-                      </span>
-                      {group.description && (
-                        <span className="text-xs text-muted-foreground truncate block">
-                          {group.description}
-                        </span>
+        <Command className="rounded-none border-0">
+          <CommandInput
+            value={search}
+            onValueChange={setSearch}
+            placeholder="Search groups…"
+          />
+          <CommandList className="max-h-[50vh]">
+            {groups.length === 0 ? (
+              <div className="p-4 text-center">
+                <Layers className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">No groups available</p>
+                <p className="text-xs text-muted-foreground mt-1">Create a group first</p>
+              </div>
+            ) : (
+              <>
+                <CommandEmpty>No matches</CommandEmpty>
+                {filteredGroups.map(group => {
+                  const isSelected = selectedGroups.includes(group.id);
+                  return (
+                    <CommandItem
+                      key={group.id}
+                      value={`${group.name} ${group.description ?? ''}`}
+                      onSelect={() => handleToggleGroup(group.id)}
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer transition-colors",
+                        "hover:bg-accent",
+                        isSelected && "bg-accent"
                       )}
-                    </div>
-                    {isSelected && (
-                      <Check className="h-4 w-4 text-primary flex-shrink-0" />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </ScrollArea>
+                    >
+                      <Checkbox checked={isSelected} className="pointer-events-none" />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm font-medium truncate block">{group.name}</span>
+                        {group.description && (
+                          <span className="text-xs text-muted-foreground truncate block">
+                            {group.description}
+                          </span>
+                        )}
+                      </div>
+                      {isSelected && <Check className="h-4 w-4 text-primary flex-shrink-0" />}
+                    </CommandItem>
+                  );
+                })}
+              </>
+            )}
+          </CommandList>
+        </Command>
         <div className="p-2 border-t border-border bg-muted/30">
           <Button 
             size="sm" 
