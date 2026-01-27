@@ -1,12 +1,11 @@
 /**
  * GroupScreensSelect Component
- * Allows selecting multiple screens to assign to a group
+ * Dropdown for selecting multiple screens to assign to a group
  */
 
 import { useState, useEffect } from 'react';
 import { Check, Monitor, ChevronDown, Loader2, Save, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
   Popover,
   PopoverContent,
@@ -14,6 +13,7 @@ import {
 } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Screen, Branch } from '@/lib/types';
@@ -120,76 +120,101 @@ export function GroupScreensSelect({
     screens: screens.filter(s => s.branchId === branch.id),
   })).filter(group => group.screens.length > 0);
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'online': return 'border-success text-success bg-success/10';
+      case 'idle': return 'border-warning text-warning bg-warning/10';
+      default: return 'border-destructive text-destructive bg-destructive/10';
+    }
+  };
+
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="w-full justify-between">
+        <Button variant="outline" size="sm" className="w-full justify-between gap-2">
           <div className="flex items-center gap-2">
             <Monitor className="h-4 w-4" />
-            <span>{selectedScreens.length} Screen(s)</span>
+            <span>
+              {selectedScreens.length > 0 
+                ? `${selectedScreens.length} Screen(s)` 
+                : 'Select Screens'}
+            </span>
           </div>
           <ChevronDown className="h-4 w-4 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0" align="start">
-        <div className="p-3 border-b border-border">
+        <div className="p-3 border-b border-border bg-muted/50">
           <h4 className="font-medium text-sm">Assign Screens to Group</h4>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-xs text-muted-foreground mt-0.5">
             Select screens from any branch
           </p>
         </div>
         <ScrollArea className="max-h-64">
-          <div className="p-2 space-y-4">
-            {screensByBranch.map(({ branch, screens: branchScreens }) => (
-              <div key={branch.id} className="space-y-2">
-                <div className="flex items-center gap-2 px-2">
-                  <Building2 className="h-3 w-3 text-muted-foreground" />
-                  <span className="text-xs font-medium text-muted-foreground uppercase">
-                    {branch.name}
-                  </span>
-                </div>
-                {branchScreens.map(screen => (
-                  <div
-                    key={screen.id}
-                    className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-accent cursor-pointer"
-                    onClick={() => toggleScreen(screen.id)}
-                  >
-                    <Checkbox
-                      checked={selectedScreens.includes(screen.id)}
-                      onCheckedChange={() => toggleScreen(screen.id)}
-                    />
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <Monitor className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <span className="text-sm truncate">{screen.name}</span>
-                    </div>
-                    <Badge 
-                      variant="outline" 
-                      className={cn(
-                        "text-xs flex-shrink-0",
-                        screen.status === 'online' && "border-success text-success",
-                        screen.status === 'idle' && "border-warning text-warning",
-                        screen.status === 'offline' && "border-destructive text-destructive"
-                      )}
-                    >
-                      {screen.status}
-                    </Badge>
+          {screensByBranch.length === 0 ? (
+            <div className="p-4 text-center">
+              <Monitor className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">No screens available</p>
+            </div>
+          ) : (
+            <div className="p-2 space-y-3">
+              {screensByBranch.map(({ branch, screens: branchScreens }) => (
+                <div key={branch.id} className="space-y-1">
+                  <div className="flex items-center gap-2 px-2 py-1">
+                    <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      {branch.name}
+                    </span>
                   </div>
-                ))}
-              </div>
-            ))}
-          </div>
+                  {branchScreens.map(screen => {
+                    const isSelected = selectedScreens.includes(screen.id);
+                    return (
+                      <div
+                        key={screen.id}
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer transition-colors",
+                          "hover:bg-accent",
+                          isSelected && "bg-accent"
+                        )}
+                        onClick={() => toggleScreen(screen.id)}
+                      >
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleScreen(screen.id)}
+                          className="pointer-events-none"
+                        />
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <Monitor className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <span className="text-sm font-medium truncate">{screen.name}</span>
+                        </div>
+                        <Badge 
+                          variant="outline" 
+                          className={cn("text-xs flex-shrink-0", getStatusColor(screen.status))}
+                        >
+                          {screen.status}
+                        </Badge>
+                        {isSelected && (
+                          <Check className="h-4 w-4 text-primary flex-shrink-0" />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          )}
         </ScrollArea>
-        <div className="p-2 border-t border-border">
+        <div className="p-2 border-t border-border bg-muted/30">
           <Button
             size="sm"
-            className="w-full"
+            className="w-full gap-2"
             onClick={handleSave}
-            disabled={isSaving}
+            disabled={isSaving || screens.length === 0}
           >
             {isSaving ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <Save className="h-4 w-4 mr-2" />
+              <Save className="h-4 w-4" />
             )}
             Save Changes
           </Button>
