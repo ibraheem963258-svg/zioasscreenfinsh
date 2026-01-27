@@ -256,20 +256,6 @@ export default function Settings() {
               </div>
             </div>
 
-            <div className="stat-card max-w-2xl border-destructive/20">
-              <h2 className="text-lg font-semibold text-foreground mb-2">Danger Zone</h2>
-              <p className="text-sm text-muted-foreground mb-4">
-                These actions are irreversible. Please proceed with caution.
-              </p>
-              <div className="flex gap-4">
-                <Button variant="outline" className="text-destructive border-destructive/50 hover:bg-destructive/10">
-                  Clear All Content
-                </Button>
-                <Button variant="outline" className="text-destructive border-destructive/50 hover:bg-destructive/10">
-                  Reset All Screens
-                </Button>
-              </div>
-            </div>
 
             <Button onClick={handleSave}>
               <Save className="h-4 w-4 mr-2" />
