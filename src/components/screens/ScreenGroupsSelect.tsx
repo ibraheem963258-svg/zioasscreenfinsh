@@ -1,16 +1,17 @@
 /**
  * Multi-select component for assigning a screen to multiple groups
+ * Uses dropdown with checkboxes for clear selection
  */
 import { useState, useEffect } from 'react';
-import { Check, Layers, Loader2 } from 'lucide-react';
+import { Check, Layers, Loader2, ChevronDown, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { ScreenGroup } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -97,65 +98,92 @@ export function ScreenGroupsSelect({
         <Button 
           variant="outline" 
           size="sm" 
-          className="h-7 gap-1 text-xs w-full justify-start"
+          className="h-8 gap-2 text-xs w-full justify-between"
         >
-          <Layers className="h-3 w-3" />
-          {selectedGroupNames.length > 0 ? (
-            <span className="truncate">
-              {selectedGroupNames.length} group(s)
-            </span>
-          ) : (
-            <span className="text-muted-foreground">Assign Groups</span>
-          )}
+          <div className="flex items-center gap-2">
+            <Layers className="h-3.5 w-3.5" />
+            {selectedGroupNames.length > 0 ? (
+              <span className="truncate max-w-[120px]">
+                {selectedGroupNames.length === 1 
+                  ? selectedGroupNames[0] 
+                  : `${selectedGroupNames.length} groups`}
+              </span>
+            ) : (
+              <span className="text-muted-foreground">Add to Groups</span>
+            )}
+          </div>
+          <ChevronDown className="h-3.5 w-3.5 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-64 p-0" align="start">
-        <div className="p-3 border-b border-border">
+      <PopoverContent className="w-72 p-0" align="start">
+        <div className="p-3 border-b border-border bg-muted/50">
           <h4 className="font-medium text-sm">Assign to Groups</h4>
-          <p className="text-xs text-muted-foreground">
-            Select groups for this screen
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Select one or more groups for this screen
           </p>
         </div>
-        <div className="max-h-48 overflow-y-auto p-2">
+        <ScrollArea className="max-h-56">
           {groups.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              No groups available
-            </p>
+            <div className="p-4 text-center">
+              <Layers className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">
+                No groups available
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Create a group first
+              </p>
+            </div>
           ) : (
-            <div className="space-y-1">
-              {groups.map(group => (
-                <div
-                  key={group.id}
-                  className={cn(
-                    "flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-accent",
-                    selectedGroups.includes(group.id) && "bg-accent"
-                  )}
-                  onClick={() => handleToggleGroup(group.id)}
-                >
-                  <Checkbox
-                    checked={selectedGroups.includes(group.id)}
-                    onCheckedChange={() => handleToggleGroup(group.id)}
-                  />
-                  <span className="text-sm flex-1 truncate">{group.name}</span>
-                  {selectedGroups.includes(group.id) && (
-                    <Check className="h-4 w-4 text-primary" />
-                  )}
-                </div>
-              ))}
+            <div className="p-2 space-y-1">
+              {groups.map(group => {
+                const isSelected = selectedGroups.includes(group.id);
+                return (
+                  <div
+                    key={group.id}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer transition-colors",
+                      "hover:bg-accent",
+                      isSelected && "bg-accent"
+                    )}
+                    onClick={() => handleToggleGroup(group.id)}
+                  >
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() => handleToggleGroup(group.id)}
+                      className="pointer-events-none"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-medium truncate block">
+                        {group.name}
+                      </span>
+                      {group.description && (
+                        <span className="text-xs text-muted-foreground truncate block">
+                          {group.description}
+                        </span>
+                      )}
+                    </div>
+                    {isSelected && (
+                      <Check className="h-4 w-4 text-primary flex-shrink-0" />
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
-        </div>
-        <div className="p-2 border-t border-border">
+        </ScrollArea>
+        <div className="p-2 border-t border-border bg-muted/30">
           <Button 
             size="sm" 
-            className="w-full" 
+            className="w-full gap-2" 
             onClick={handleSave}
-            disabled={isSaving}
+            disabled={isSaving || groups.length === 0}
           >
             {isSaving ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            ) : null}
-            Save
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            Save Changes
           </Button>
         </div>
       </PopoverContent>
