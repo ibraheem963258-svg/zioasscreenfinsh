@@ -1,9 +1,13 @@
 /**
  * GroupScreensSelect Component
  * Dropdown for selecting multiple screens to assign to a group
+ *
+ * UX goal:
+ * - When there are many screens/groups, the list must remain usable.
+ * - Provide search + a scrollable list inside the dropdown.
  */
 
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Check, Monitor, ChevronDown, Loader2, Save, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,8 +16,15 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Screen, Branch } from '@/lib/types';
@@ -35,6 +46,7 @@ export function GroupScreensSelect({
   const [isOpen, setIsOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedScreens, setSelectedScreens] = useState<string[]>([]);
+  const [search, setSearch] = useState('');
   const { toast } = useToast();
 
   // Find screens currently assigned to this group
@@ -115,10 +127,31 @@ export function GroupScreensSelect({
   };
 
   // Group screens by branch for easier selection
-  const screensByBranch = branches.map(branch => ({
-    branch,
-    screens: screens.filter(s => s.branchId === branch.id),
-  })).filter(group => group.screens.length > 0);
+  const screensByBranch = useMemo(
+    () =>
+      branches
+        .map(branch => ({
+          branch,
+          screens: screens.filter(s => s.branchId === branch.id),
+        }))
+        .filter(group => group.screens.length > 0),
+    [branches, screens]
+  );
+
+  const normalizedQuery = search.trim().toLowerCase();
+  const filteredScreensByBranch = useMemo(() => {
+    if (!normalizedQuery) return screensByBranch;
+    return screensByBranch
+      .map(({ branch, screens: branchScreens }) => ({
+        branch,
+        screens: branchScreens.filter(s =>
+          `${s.name} ${getBranchName(s.branchId)} ${s.status}`
+            .toLowerCase()
+            .includes(normalizedQuery)
+        ),
+      }))
+      .filter(g => g.screens.length > 0);
+  }, [normalizedQuery, screensByBranch]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -150,60 +183,67 @@ export function GroupScreensSelect({
             Select screens from any branch
           </p>
         </div>
-        <ScrollArea className="max-h-64">
-          {screensByBranch.length === 0 ? (
-            <div className="p-4 text-center">
-              <Monitor className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">No screens available</p>
-            </div>
-          ) : (
-            <div className="p-2 space-y-3">
-              {screensByBranch.map(({ branch, screens: branchScreens }) => (
-                <div key={branch.id} className="space-y-1">
-                  <div className="flex items-center gap-2 px-2 py-1">
-                    <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                      {branch.name}
-                    </span>
-                  </div>
-                  {branchScreens.map(screen => {
-                    const isSelected = selectedScreens.includes(screen.id);
-                    return (
-                      <div
-                        key={screen.id}
-                        className={cn(
-                          "flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer transition-colors",
-                          "hover:bg-accent",
-                          isSelected && "bg-accent"
-                        )}
-                        onClick={() => toggleScreen(screen.id)}
-                      >
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={() => toggleScreen(screen.id)}
-                          className="pointer-events-none"
-                        />
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <Monitor className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                          <span className="text-sm font-medium truncate">{screen.name}</span>
-                        </div>
-                        <Badge 
-                          variant="outline" 
-                          className={cn("text-xs flex-shrink-0", getStatusColor(screen.status))}
+        <Command className="rounded-none border-0">
+          <CommandInput
+            value={search}
+            onValueChange={setSearch}
+            placeholder="Search screens…"
+          />
+          <CommandList className="max-h-[60vh]">
+            {screensByBranch.length === 0 ? (
+              <div className="p-4 text-center">
+                <Monitor className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">No screens available</p>
+              </div>
+            ) : (
+              <>
+                <CommandEmpty>No matches</CommandEmpty>
+                {filteredScreensByBranch.map(({ branch, screens: branchScreens }) => (
+                  <CommandGroup
+                    key={branch.id}
+                    heading={
+                      <span className="flex items-center gap-2">
+                        <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          {branch.name}
+                        </span>
+                      </span>
+                    }
+                  >
+                    {branchScreens.map(screen => {
+                      const isSelected = selectedScreens.includes(screen.id);
+                      return (
+                        <CommandItem
+                          key={screen.id}
+                          value={`${branch.name} ${screen.name} ${screen.status}`}
+                          onSelect={() => toggleScreen(screen.id)}
+                          className={cn(
+                            "flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer transition-colors",
+                            "hover:bg-accent",
+                            isSelected && "bg-accent"
+                          )}
                         >
-                          {screen.status}
-                        </Badge>
-                        {isSelected && (
-                          <Check className="h-4 w-4 text-primary flex-shrink-0" />
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          )}
-        </ScrollArea>
+                          <Checkbox checked={isSelected} className="pointer-events-none" />
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <Monitor className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                            <span className="text-sm font-medium truncate">{screen.name}</span>
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className={cn("text-xs flex-shrink-0", getStatusColor(screen.status))}
+                          >
+                            {screen.status}
+                          </Badge>
+                          {isSelected && <Check className="h-4 w-4 text-primary flex-shrink-0" />}
+                        </CommandItem>
+                      );
+                    })}
+                  </CommandGroup>
+                ))}
+              </>
+            )}
+          </CommandList>
+        </Command>
         <div className="p-2 border-t border-border bg-muted/30">
           <Button
             size="sm"
