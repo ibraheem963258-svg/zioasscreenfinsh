@@ -407,6 +407,36 @@ export async function deleteSchedule(id: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function updateSchedule(
+  id: string,
+  name: string,
+  contentId: string,
+  targetType: 'screen' | 'group' | 'branch',
+  targetId: string,
+  startDate: string,
+  endDate: string,
+  startTime: string,
+  endTime: string,
+  priority: number
+): Promise<void> {
+  const { error } = await supabase
+    .from('schedules')
+    .update({
+      name,
+      content_id: contentId,
+      target_type: targetType,
+      target_id: targetId,
+      start_date: startDate,
+      end_date: endDate,
+      start_time: startTime,
+      end_time: endTime,
+      priority,
+    })
+    .eq('id', id);
+  
+  if (error) throw error;
+}
+
 // Dashboard Stats
 export async function getDashboardStats(): Promise<DashboardStats> {
   const [branches, groups, screens, content, schedules, playlists] = await Promise.all([
