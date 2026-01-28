@@ -126,35 +126,33 @@ export default function Users() {
     setIsCreating(true);
 
     try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: newEmail,
-        password: newPassword,
-        options: {
-          data: {
-            full_name: newFullName,
-          },
+      // Get the current session for authorization
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Not authenticated');
+      }
+
+      // Call the edge function to create the user
+      const response = await supabase.functions.invoke('create-user', {
+        body: {
+          email: newEmail,
+          password: newPassword,
+          fullName: newFullName,
+          role: newRole,
         },
       });
 
-      if (authError) throw authError;
-      if (!authData.user) throw new Error('Failed to create user');
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to create user');
+      }
 
-      if (newRole === 'admin') {
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .insert({
-            user_id: authData.user.id,
-            role: 'admin',
-          });
-
-        if (roleError) {
-          console.error('Failed to add admin role:', roleError);
-        }
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'Failed to create user');
       }
 
       toast({
-        title: 'Success',
-        description: `Account created for ${newEmail}`,
+        title: 'تم بنجاح',
+        description: `تم إنشاء حساب ${newEmail}`,
       });
 
       setNewEmail('');
@@ -167,8 +165,8 @@ export default function Users() {
     } catch (error: any) {
       console.error('Failed to create user:', error);
       toast({
-        title: 'Creation Failed',
-        description: error.message || 'An error occurred while creating the user',
+        title: 'فشل الإنشاء',
+        description: error.message || 'حدث خطأ أثناء إنشاء المستخدم',
         variant: 'destructive',
       });
     } finally {
