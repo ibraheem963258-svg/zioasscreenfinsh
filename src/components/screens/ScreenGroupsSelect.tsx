@@ -137,7 +137,7 @@ export function ScreenGroupsSelect({
             Select one or more groups for this screen
           </p>
         </div>
-        <Command className="rounded-none border-0 bg-popover">
+        <Command shouldFilter={false} className="rounded-none border-0 bg-popover">
           <CommandInput
             value={search}
             onValueChange={setSearch}

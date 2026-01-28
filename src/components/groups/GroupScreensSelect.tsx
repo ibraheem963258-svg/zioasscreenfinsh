@@ -183,7 +183,7 @@ export function GroupScreensSelect({
             Select screens from any branch
           </p>
         </div>
-        <Command className="rounded-none border-0 bg-popover">
+        <Command shouldFilter={false} className="rounded-none border-0 bg-popover">
           <CommandInput
             value={search}
             onValueChange={setSearch}
