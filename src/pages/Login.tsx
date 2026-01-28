@@ -67,10 +67,10 @@ export default function Login() {
               <Tv2 className="h-10 w-10 text-primary-foreground" />
             </div>
           </div>
-          <h1 className="text-4xl font-bold gradient-text mb-4">SignageHub</h1>
+          <h1 className="text-4xl font-bold gradient-text mb-4">Zio Als Screen</h1>
           <p className="text-lg text-muted-foreground mb-8">
             Professional digital signage management system for modern businesses.
-            Control your screens, content, and schedules from one powerful platform.
+            Control your screens, content, and playlists from one powerful platform.
           </p>
           <div className="grid grid-cols-3 gap-4 text-center">
             <div className="p-4 rounded-lg bg-card/50 border border-border">
@@ -98,7 +98,7 @@ export default function Login() {
                 <Tv2 className="h-8 w-8 text-primary-foreground" />
               </div>
             </div>
-            <h1 className="text-2xl font-bold gradient-text">SignageHub</h1>
+            <h1 className="text-2xl font-bold gradient-text">Zio Als Screen</h1>
           </div>
 
           <div className="space-y-6">
