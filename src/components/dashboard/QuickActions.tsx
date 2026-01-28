@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Plus, Upload, Calendar, Monitor } from 'lucide-react';
+import { Plus, Upload, Monitor, ListVideo } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export function QuickActions() {
@@ -29,14 +29,14 @@ export function QuickActions() {
             </div>
           </Button>
         </Link>
-        <Link to="/schedules">
+        <Link to="/playlists">
           <Button variant="secondary" className="w-full justify-start gap-2 h-auto py-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-warning/20">
-              <Calendar className="h-4 w-4 text-warning" />
+              <ListVideo className="h-4 w-4 text-warning" />
             </div>
             <div className="text-left">
-              <p className="text-sm font-medium">New Schedule</p>
-              <p className="text-xs text-muted-foreground">Plan content</p>
+              <p className="text-sm font-medium">New Playlist</p>
+              <p className="text-xs text-muted-foreground">Create playlist</p>
             </div>
           </Button>
         </Link>

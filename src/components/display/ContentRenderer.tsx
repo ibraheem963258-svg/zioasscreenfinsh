@@ -146,7 +146,7 @@ export function ContentRenderer({
     return () => clearTimeout(timer);
   }, [currentIndex, content, displayOrder, settings.slideDuration, goToNext, isPlaying]);
 
-  // Video Ended Handler
+  // Video Ended Handler - Auto-loop for Digital Signage
   const handleVideoEnded = useCallback(() => {
     if (content.length > 1) {
       goToNext();
@@ -155,6 +155,45 @@ export function ContentRenderer({
       videoRef.current.play().catch(console.error);
     }
   }, [content.length, goToNext]);
+
+  // Auto-resume if video is paused externally (e.g., by remote control)
+  useEffect(() => {
+    if (!isPlaying) return;
+    
+    const checkAndResume = () => {
+      if (videoRef.current && videoRef.current.paused && isPlaying) {
+        console.log('Video paused externally - auto-resuming for Digital Signage');
+        videoRef.current.play().catch(console.error);
+      }
+    };
+
+    // Check every 500ms if video is paused
+    const interval = setInterval(checkAndResume, 500);
+    
+    // Also listen for pause events
+    const handlePause = () => {
+      if (isPlaying && videoRef.current) {
+        setTimeout(() => {
+          if (videoRef.current && videoRef.current.paused && isPlaying) {
+            console.log('Resuming video after external pause');
+            videoRef.current.play().catch(console.error);
+          }
+        }, 100);
+      }
+    };
+
+    const video = videoRef.current;
+    if (video) {
+      video.addEventListener('pause', handlePause);
+    }
+
+    return () => {
+      clearInterval(interval);
+      if (video) {
+        video.removeEventListener('pause', handlePause);
+      }
+    };
+  }, [isPlaying]);
 
   // Next Video Loaded Handler
   const handleNextVideoLoaded = useCallback(() => {
@@ -251,6 +290,12 @@ export function ContentRenderer({
             muted
             loop
             playsInline
+            controls={false}
+            controlsList="nodownload nofullscreen noremoteplayback"
+            disablePictureInPicture
+            disableRemotePlayback
+            onContextMenu={(e) => e.preventDefault()}
+            style={{ pointerEvents: 'none' }}
           />
         )}
       </div>
@@ -281,9 +326,16 @@ export function ContentRenderer({
             className={cn("w-full h-full", getScalingClass())}
             autoPlay
             muted
+            loop={content.length === 1}
             playsInline
+            controls={false}
+            controlsList="nodownload nofullscreen noremoteplayback"
+            disablePictureInPicture
+            disableRemotePlayback
             onEnded={handleVideoEnded}
+            onContextMenu={(e) => e.preventDefault()}
             onError={(e) => console.error('Video load error:', e)}
+            style={{ pointerEvents: 'none' }}
           />
         )}
       </div>
@@ -312,7 +364,13 @@ export function ContentRenderer({
               preload="auto"
               muted
               playsInline
+              controls={false}
+              controlsList="nodownload nofullscreen noremoteplayback"
+              disablePictureInPicture
+              disableRemotePlayback
               onLoadedData={handleNextVideoLoaded}
+              onContextMenu={(e) => e.preventDefault()}
+              style={{ pointerEvents: 'none' }}
             />
           )}
         </div>
