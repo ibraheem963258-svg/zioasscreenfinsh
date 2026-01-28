@@ -176,20 +176,21 @@ export function GroupScreensSelect({
           <ChevronDown className="h-4 w-4 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="start">
+      <PopoverContent className="w-80 p-0 z-50" align="start" sideOffset={4}>
         <div className="p-3 border-b border-border bg-muted/50">
           <h4 className="font-medium text-sm">Assign Screens to Group</h4>
           <p className="text-xs text-muted-foreground mt-0.5">
             Select screens from any branch
           </p>
         </div>
-        <Command className="rounded-none border-0">
+        <Command className="rounded-none border-0 bg-popover">
           <CommandInput
             value={search}
             onValueChange={setSearch}
             placeholder="Search screens…"
+            className="border-b"
           />
-          <CommandList className="max-h-[60vh]">
+          <CommandList className="max-h-[40vh] overflow-y-auto overscroll-contain">
             {screensByBranch.length === 0 ? (
               <div className="p-4 text-center">
                 <Monitor className="h-8 w-8 text-muted-foreground mx-auto mb-2" />

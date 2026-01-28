@@ -130,20 +130,21 @@ export function ScreenGroupsSelect({
           <ChevronDown className="h-3.5 w-3.5 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-72 p-0" align="start">
+      <PopoverContent className="w-72 p-0 z-50" align="start" sideOffset={4}>
         <div className="p-3 border-b border-border bg-muted/50">
           <h4 className="font-medium text-sm">Assign to Groups</h4>
           <p className="text-xs text-muted-foreground mt-0.5">
             Select one or more groups for this screen
           </p>
         </div>
-        <Command className="rounded-none border-0">
+        <Command className="rounded-none border-0 bg-popover">
           <CommandInput
             value={search}
             onValueChange={setSearch}
             placeholder="Search groups…"
+            className="border-b"
           />
-          <CommandList className="max-h-[50vh]">
+          <CommandList className="max-h-[40vh] overflow-y-auto overscroll-contain">
             {groups.length === 0 ? (
               <div className="p-4 text-center">
                 <Layers className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
