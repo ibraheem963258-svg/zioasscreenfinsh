@@ -47,11 +47,11 @@ import {
   createContent, 
   deleteContent, 
   assignContent,
-  assignPlaylist,
   getScreens,
   getScreenGroups,
   getBranches
 } from '@/lib/api';
+import { createPlaylist } from '@/lib/api/playlists';
 import { ContentItem, Screen, ScreenGroup, Branch } from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -232,15 +232,26 @@ export default function Content() {
     targetType: string,
     targetIds: string[]
   ) => {
-    await assignPlaylist(
-      items.map(item => ({
-        contentId: item.content.id,
-        duration: item.duration,
-        order: item.order,
-      })),
-      targetType as 'screen' | 'group' | 'branch',
-      targetIds
-    );
+    // Create a playlist for each target
+    for (const targetId of targetIds) {
+      const targetName = targetType === 'screen' 
+        ? screens.find(s => s.id === targetId)?.name 
+        : targetType === 'group'
+        ? groups.find(g => g.id === targetId)?.name
+        : branches.find(b => b.id === targetId)?.name;
+      
+      await createPlaylist(
+        `Playlist - ${targetName || 'Unknown'}`,
+        targetType as 'screen' | 'group' | 'branch',
+        targetId,
+        items.map(item => ({
+          contentId: item.content.id,
+          duration: item.duration,
+          order: item.order,
+        })),
+        true // Activate immediately
+      );
+    }
   };
 
   if (isLoading) {
