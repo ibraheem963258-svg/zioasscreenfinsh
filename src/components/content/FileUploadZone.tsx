@@ -109,7 +109,10 @@ export function FileUploadZone({ onUploadComplete, onClose }: FileUploadZoneProp
 
       const { error: uploadError } = await supabase.storage
         .from('content')
-        .upload(filePath, file);
+        .upload(filePath, file, {
+          cacheControl: '31536000',
+          upsert: false,
+        });
 
       if (uploadError) throw uploadError;
 
