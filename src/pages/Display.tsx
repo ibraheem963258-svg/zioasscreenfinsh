@@ -323,7 +323,7 @@ export default function Display() {
       }
     };
 
-    const interval = setInterval(heartbeat, 30000);
+    const interval = setInterval(heartbeat, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [screen?.id]);
 
@@ -344,31 +344,6 @@ export default function Display() {
     return () => clearInterval(refreshInterval);
   }, []);
 
-  // Auto-refresh content every 2 seconds
-  useEffect(() => {
-    if (!screen?.id) return;
-
-    const autoRefreshInterval = setInterval(async () => {
-      try {
-        const { playlist: activePlaylist, content: playlistContent } = await getActivePlaylistForScreen(screen.id);
-        
-        // Only update if there's actual content change
-        if (JSON.stringify(playlistContent.map(c => c.id)) !== JSON.stringify(content.map(c => c.id))) {
-          console.log('Auto-refresh: Content updated');
-          setContent(playlistContent);
-        }
-        
-        // Update playlist if changed
-        if (activePlaylist?.id !== playlist?.id) {
-          setPlaylist(activePlaylist);
-        }
-      } catch (err) {
-        console.error('Auto-refresh failed:', err);
-      }
-    }, 2000);
-
-    return () => clearInterval(autoRefreshInterval);
-  }, [screen?.id, playlist?.id, content]);
 
   // Handle Playlist Transition End
   const handleTransitionEnd = useCallback(() => {
