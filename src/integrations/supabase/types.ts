@@ -379,6 +379,7 @@ export type Database = {
           branch_id: string
           created_at: string
           current_playlist_id: string | null
+          force_refresh_at: string | null
           id: string
           is_active: boolean
           is_playing: boolean
@@ -396,6 +397,7 @@ export type Database = {
           branch_id: string
           created_at?: string
           current_playlist_id?: string | null
+          force_refresh_at?: string | null
           id?: string
           is_active?: boolean
           is_playing?: boolean
@@ -413,6 +415,7 @@ export type Database = {
           branch_id?: string
           created_at?: string
           current_playlist_id?: string | null
+          force_refresh_at?: string | null
           id?: string
           is_active?: boolean
           is_playing?: boolean

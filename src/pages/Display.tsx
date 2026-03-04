@@ -239,6 +239,13 @@ export default function Display() {
           const updated = payload.new as any;
           
           setIsPlaying(updated.is_playing ?? true);
+
+          // Remote refresh trigger from dashboard
+          if (updated.force_refresh_at) {
+            console.log('Remote refresh triggered');
+            window.location.reload();
+            return;
+          }
           
           if (updated.current_playlist_id !== playlist?.id) {
             quickRefresh();
