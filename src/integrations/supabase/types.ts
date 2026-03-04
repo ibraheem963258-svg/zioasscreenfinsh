@@ -480,6 +480,7 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      mark_stale_screens_offline: { Args: never; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "user"

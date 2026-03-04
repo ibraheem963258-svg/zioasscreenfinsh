@@ -1,13 +1,23 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Monitor, Building2, Layers, FolderOpen, Calendar, Wifi, WifiOff, CirclePause, ListMusic } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { ScreenStatusList } from '@/components/dashboard/ScreenStatusList';
 import { QuickActions } from '@/components/dashboard/QuickActions';
-
+import { supabase } from '@/integrations/supabase/client';
 import { getDashboardStats, getScreens, getBranches } from '@/lib/api';
 import { DashboardStats, Screen, Branch } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+
+// Recompute a screen's status based on heartbeat time (client-side mirror of DB logic)
+function computeScreenStatus(s: Screen): Screen['status'] {
+  const minutesSince = s.lastHeartbeat
+    ? (Date.now() - s.lastHeartbeat.getTime()) / 60000
+    : Infinity;
+  if (minutesSince > 2) return 'offline';
+  if (!s.isPlaying || !s.currentPlaylistId) return 'idle';
+  return 'online';
+}
 
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -15,26 +25,67 @@ export default function Dashboard() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [statsData, screensData, branchesData] = await Promise.all([
-          getDashboardStats(),
-          getScreens(),
-          getBranches(),
-        ]);
-        setStats(statsData);
-        setScreens(screensData);
-        setBranches(branchesData);
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
+  const fetchData = useCallback(async () => {
+    try {
+      const [statsData, screensData, branchesData] = await Promise.all([
+        getDashboardStats(),
+        getScreens(),
+        getBranches(),
+      ]);
+      setStats(statsData);
+      setScreens(screensData);
+      setBranches(branchesData);
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchData();
+
+    // ── Realtime: react immediately when a screen row changes ──
+    const channel = supabase
+      .channel('dashboard-screens-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'screens' },
+        (payload) => {
+          const updated = payload.new as any;
+          setScreens(prev =>
+            prev.map(s => {
+              if (s.id !== updated.id) return s;
+              const next: Screen = {
+                ...s,
+                status: updated.status as Screen['status'],
+                isPlaying: updated.is_playing ?? true,
+                isActive: updated.is_active ?? true,
+                lastHeartbeat: updated.last_heartbeat ? new Date(updated.last_heartbeat) : null,
+                lastUpdated: new Date(updated.updated_at),
+                currentPlaylistId: updated.current_playlist_id,
+              };
+              // Override with locally-computed status (catches stale "online" in DB)
+              return { ...next, status: computeScreenStatus(next) };
+            })
+          );
+          // Refresh stats counts
+          getDashboardStats().then(setStats).catch(console.error);
+        }
+      )
+      .subscribe();
+
+    // ── Periodic local recompute every 30s (catches tabs closed / power off) ──
+    const statusInterval = setInterval(() => {
+      setScreens(prev => prev.map(s => ({ ...s, status: computeScreenStatus(s) })));
+      getDashboardStats().then(setStats).catch(console.error);
+    }, 30 * 1000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(statusInterval);
+    };
+  }, [fetchData]);
 
   if (isLoading) {
     return (
