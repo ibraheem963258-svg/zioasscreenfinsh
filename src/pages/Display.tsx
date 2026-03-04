@@ -86,6 +86,8 @@ export default function Display() {
   
   // Channel Refs
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  // Track the last known force_refresh_at to detect NEW refresh commands only
+  const lastForceRefreshRef = useRef<string | null>(null);
 
   // Custom Hooks
   const { enterFullscreen } = useFullscreen();
@@ -140,6 +142,11 @@ export default function Display() {
 
       setScreen(screenObj);
       setIsPlaying(screenObj.isPlaying);
+
+      // Store the initial force_refresh_at so we only react to NEW refresh commands
+      if (lastForceRefreshRef.current === null) {
+        lastForceRefreshRef.current = screenData.force_refresh_at ?? '';
+      }
 
       await updateScreenStatus(screenData.id, 'online');
 
@@ -240,9 +247,11 @@ export default function Display() {
           
           setIsPlaying(updated.is_playing ?? true);
 
-          // Remote refresh trigger from dashboard
-          if (updated.force_refresh_at) {
-            console.log('Remote refresh triggered');
+          // Remote refresh trigger — only fire when force_refresh_at is a NEW value
+          const incomingRefreshAt = updated.force_refresh_at ?? '';
+          if (incomingRefreshAt && incomingRefreshAt !== lastForceRefreshRef.current) {
+            console.log('Remote refresh triggered:', incomingRefreshAt);
+            lastForceRefreshRef.current = incomingRefreshAt;
             window.location.reload();
             return;
           }

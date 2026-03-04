@@ -128,13 +128,38 @@ export default function Screens() {
   useEffect(() => {
     fetchData();
 
-    // Periodic status check: marks screens offline if heartbeat > 2min (heartbeat is every 60s)
+    // Periodic status check: marks screens offline if heartbeat > 2min
+    // and fires a toast notification the first time a screen goes offline
+    const notifiedOfflineRef = new Set<string>();
+
     const statusChecker = setInterval(() => {
       setScreens(prev => prev.map(s => {
-        if (!s.lastHeartbeat) return { ...s, status: 'offline' };
+        if (!s.lastHeartbeat) {
+          if (s.status !== 'offline' && !notifiedOfflineRef.has(s.id)) {
+            notifiedOfflineRef.add(s.id);
+            toast({
+              title: '⚠️ شاشة منقطعة',
+              description: `الشاشة "${s.name}" غير متصلة — لم يُستقبل أي heartbeat.`,
+              variant: 'destructive',
+            });
+          }
+          return { ...s, status: 'offline' };
+        }
         const minutesSince = (Date.now() - s.lastHeartbeat.getTime()) / 60000;
         if (minutesSince > 2 && s.status !== 'offline') {
+          if (!notifiedOfflineRef.has(s.id)) {
+            notifiedOfflineRef.add(s.id);
+            toast({
+              title: '⚠️ شاشة منقطعة',
+              description: `الشاشة "${s.name}" غير متصلة منذ أكثر من دقيقتين.`,
+              variant: 'destructive',
+            });
+          }
           return { ...s, status: 'offline' };
+        }
+        // Screen back online — clear notification flag
+        if (s.status !== 'offline') {
+          notifiedOfflineRef.delete(s.id);
         }
         return s;
       }));
@@ -163,19 +188,41 @@ export default function Screens() {
             } else if (newStatus === 'online' && !hasActivePlaylist) {
               newStatus = 'idle';
             }
-            setScreens(prev => prev.map(s => 
-              s.id === updatedScreen.id 
-                ? { 
-                    ...s, 
-                    status: newStatus,
-                    isPlaying: updatedScreen.is_playing ?? true,
-                    isActive: updatedScreen.is_active ?? true,
-                    lastHeartbeat,
-                    lastUpdated: new Date(updatedScreen.updated_at),
-                    currentPlaylistId: updatedScreen.current_playlist_id,
-                  }
-                : s
-            ));
+
+            setScreens(prev => {
+              return prev.map(s => {
+                if (s.id !== updatedScreen.id) return s;
+
+                // Fire offline toast when transitioning to offline via realtime
+                if (newStatus === 'offline' && s.status !== 'offline' && !notifiedOfflineRef.has(s.id)) {
+                  notifiedOfflineRef.add(s.id);
+                  toast({
+                    title: '⚠️ شاشة منقطعة',
+                    description: `الشاشة "${s.name}" انقطعت عن الإنترنت.`,
+                    variant: 'destructive',
+                  });
+                }
+
+                // Screen came back online — show recovery toast & clear flag
+                if (newStatus !== 'offline' && s.status === 'offline') {
+                  notifiedOfflineRef.delete(s.id);
+                  toast({
+                    title: '✅ شاشة متصلة',
+                    description: `الشاشة "${s.name}" عادت للاتصال.`,
+                  });
+                }
+
+                return {
+                  ...s,
+                  status: newStatus,
+                  isPlaying: updatedScreen.is_playing ?? true,
+                  isActive: updatedScreen.is_active ?? true,
+                  lastHeartbeat,
+                  lastUpdated: new Date(updatedScreen.updated_at),
+                  currentPlaylistId: updatedScreen.current_playlist_id,
+                };
+              });
+            });
           }
         }
       )
@@ -185,7 +232,7 @@ export default function Screens() {
       supabase.removeChannel(channel);
       clearInterval(statusChecker);
     };
-  }, []);
+  }, [toast]);
 
   const fetchData = async () => {
     try {
