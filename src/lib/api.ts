@@ -116,9 +116,15 @@ export async function getScreens(): Promise<Screen[]> {
     const isOnline = s.status === 'online';
     let status: 'online' | 'offline' | 'idle' = s.status as 'online' | 'offline';
     
-    // تحديد إذا كانت الشاشة في وضع idle (متصلة لكن بدون playlist نشطة)
-    // Determine if screen is idle (online but no active playlist)
-    if (isOnline && !hasActivePlaylist) {
+    // Mark as offline if no heartbeat in the last 10 minutes
+    const lastHeartbeat = s.last_heartbeat ? new Date(s.last_heartbeat) : null;
+    const minutesSinceHeartbeat = lastHeartbeat
+      ? (Date.now() - lastHeartbeat.getTime()) / 60000
+      : Infinity;
+
+    if (minutesSinceHeartbeat > 10) {
+      status = 'offline';
+    } else if (isOnline && !hasActivePlaylist) {
       status = 'idle';
     }
 

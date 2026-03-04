@@ -26,7 +26,8 @@ import {
   CirclePause,
   ListMusic,
   Settings,
-  Clock
+  Clock,
+  RefreshCw
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
@@ -79,7 +80,6 @@ import {
   deleteBranch,
   deleteScreenGroup,
   toggleScreenPlaying,
-  toggleScreenActive
 } from '@/lib/api';
 import { getPlaylistsForTarget } from '@/lib/api/playlists';
 import { Screen, Branch, ScreenGroup, Playlist } from '@/lib/types';
@@ -140,13 +140,24 @@ export default function Screens() {
         (payload) => {
           if (payload.eventType === 'UPDATE') {
             const updatedScreen = payload.new as any;
+            const lastHeartbeat = updatedScreen.last_heartbeat ? new Date(updatedScreen.last_heartbeat) : null;
+            const minutesSinceHeartbeat = lastHeartbeat
+              ? (Date.now() - lastHeartbeat.getTime()) / 60000
+              : Infinity;
+            const hasActivePlaylist = updatedScreen.current_playlist_id !== null;
+            let newStatus: 'online' | 'offline' | 'idle' = updatedScreen.status as 'online' | 'offline' | 'idle';
+            if (minutesSinceHeartbeat > 10) {
+              newStatus = 'offline';
+            } else if (newStatus === 'online' && !hasActivePlaylist) {
+              newStatus = 'idle';
+            }
             setScreens(prev => prev.map(s => 
               s.id === updatedScreen.id 
                 ? { 
                     ...s, 
-                    status: updatedScreen.status as 'online' | 'offline' | 'idle',
+                    status: newStatus,
                     isPlaying: updatedScreen.is_playing ?? true,
-                    lastHeartbeat: updatedScreen.last_heartbeat ? new Date(updatedScreen.last_heartbeat) : null,
+                    lastHeartbeat,
                     lastUpdated: new Date(updatedScreen.updated_at),
                     currentPlaylistId: updatedScreen.current_playlist_id,
                   }
@@ -276,21 +287,20 @@ export default function Screens() {
     }
   };
 
-  const handleToggleActive = async (screen: Screen) => {
-    const newState = !screen.isActive;
+  const handleRefreshScreen = async (screen: Screen) => {
     try {
-      await toggleScreenActive(screen.id, newState);
-      setScreens(prev => prev.map(s => 
-        s.id === screen.id ? { ...s, isActive: newState } : s
-      ));
+      await supabase
+        .from('screens')
+        .update({ force_refresh_at: new Date().toISOString() } as any)
+        .eq('id', screen.id);
       toast({
-        title: newState ? 'Screen Enabled' : 'Screen Disabled',
-        description: `"${screen.name}" display URL is now ${newState ? 'active' : 'disabled'}.`,
+        title: 'Refresh Sent',
+        description: `A refresh command was sent to "${screen.name}".`,
       });
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to toggle screen.',
+        description: 'Failed to send refresh.',
         variant: 'destructive',
       });
     }
@@ -814,18 +824,6 @@ export default function Screens() {
 
                         <div className="pt-3 border-t border-border space-y-2">
                           <div className="flex justify-between items-center text-sm">
-                            <span className="text-muted-foreground">Screen URL Active</span>
-                            <div className="flex items-center gap-2">
-                              <span className={cn("text-xs font-medium", screen.isActive ? 'text-success' : 'text-destructive')}>
-                                {screen.isActive ? 'Enabled' : 'Disabled'}
-                              </span>
-                              <Switch 
-                                checked={screen.isActive} 
-                                onCheckedChange={() => handleToggleActive(screen)}
-                              />
-                            </div>
-                          </div>
-                          <div className="flex justify-between items-center text-sm">
                             <span className="text-muted-foreground">Content Playback</span>
                             <div className="flex items-center gap-2">
                               <span className="text-xs text-muted-foreground">
@@ -871,6 +869,14 @@ export default function Screens() {
                               <ListMusic className="h-4 w-4 mr-1" />
                               Playlists
                             </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              title="Send refresh command to screen"
+                              onClick={() => handleRefreshScreen(screen)}
+                            >
+                              <RefreshCw className="h-4 w-4" />
+                            </Button>
                             <DisplaySettingsDialog
                               targetType="screen"
                               targetId={screen.id}
@@ -883,6 +889,7 @@ export default function Screens() {
                             />
                           </div>
                         </div>
+
                       </div>
                     </div>
                   );
