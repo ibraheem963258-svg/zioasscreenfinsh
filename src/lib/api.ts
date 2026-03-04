@@ -459,7 +459,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   const [branches, groups, screens, content, schedules, playlists] = await Promise.all([
     supabase.from('branches').select('id', { count: 'exact' }),
     supabase.from('screen_groups').select('id', { count: 'exact' }),
-    supabase.from('screens').select('id, status, current_playlist_id'),
+    supabase.from('screens').select('id, status, current_playlist_id, last_heartbeat, is_playing'),
     supabase.from('content').select('id', { count: 'exact' }),
     supabase.from('schedules').select('id, is_active'),
     supabase.from('playlists').select('id, is_active'),
@@ -469,10 +469,19 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   const schedulesData = schedules.data || [];
   const playlistsData = playlists.data || [];
 
-  // Count screens by status
-  const onlineScreens = screensData.filter(s => s.status === 'online' && s.current_playlist_id !== null).length;
-  const idleScreens = screensData.filter(s => s.status === 'online' && s.current_playlist_id === null).length;
-  const offlineScreens = screensData.filter(s => s.status === 'offline').length;
+  // Recalculate status using heartbeat (same logic as getScreens)
+  const computeStatus = (s: { status: string; last_heartbeat: string | null; current_playlist_id: string | null; is_playing: boolean }): 'online' | 'offline' | 'idle' => {
+    const lastHeartbeat = s.last_heartbeat ? new Date(s.last_heartbeat) : null;
+    const minutesSince = lastHeartbeat ? (Date.now() - lastHeartbeat.getTime()) / 60000 : Infinity;
+    if (minutesSince > 2) return 'offline';
+    if (!s.is_playing) return 'idle';
+    if (s.current_playlist_id === null) return 'idle';
+    return 'online';
+  };
+
+  const onlineScreens = screensData.filter(s => computeStatus(s) === 'online').length;
+  const idleScreens = screensData.filter(s => computeStatus(s) === 'idle').length;
+  const offlineScreens = screensData.filter(s => computeStatus(s) === 'offline').length;
 
   return {
     totalScreens: screensData.length,
