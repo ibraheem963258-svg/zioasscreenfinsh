@@ -128,25 +128,29 @@ export default function Screens() {
   useEffect(() => {
     fetchData();
 
-    // Periodic status check: marks screens offline if heartbeat > 2min
-    // and fires a toast notification the first time a screen goes offline
+    // Screens already offline at load — pre-populate so we don't fire false alerts
+    // We populate this after fetchData resolves via a short delay
     const notifiedOfflineRef = new Set<string>();
+    const initTimer = setTimeout(() => {
+      setScreens(prev => {
+        prev.forEach(s => {
+          if (s.status === 'offline') notifiedOfflineRef.add(s.id);
+        });
+        return prev;
+      });
+    }, 2000);
 
+    // Periodic status check: marks screens offline if heartbeat > 2min
+    // and fires a toast ONLY when a screen transitions FROM online/idle TO offline
     const statusChecker = setInterval(() => {
       setScreens(prev => prev.map(s => {
-        if (!s.lastHeartbeat) {
-          if (s.status !== 'offline' && !notifiedOfflineRef.has(s.id)) {
-            notifiedOfflineRef.add(s.id);
-            toast({
-              title: '⚠️ شاشة منقطعة',
-              description: `الشاشة "${s.name}" غير متصلة — لم يُستقبل أي heartbeat.`,
-              variant: 'destructive',
-            });
-          }
-          return { ...s, status: 'offline' };
-        }
-        const minutesSince = (Date.now() - s.lastHeartbeat.getTime()) / 60000;
-        if (minutesSince > 2 && s.status !== 'offline') {
+        const minutesSince = s.lastHeartbeat
+          ? (Date.now() - s.lastHeartbeat.getTime()) / 60000
+          : Infinity;
+
+        const shouldBeOffline = minutesSince > 2;
+
+        if (shouldBeOffline && s.status !== 'offline') {
           if (!notifiedOfflineRef.has(s.id)) {
             notifiedOfflineRef.add(s.id);
             toast({
@@ -157,10 +161,12 @@ export default function Screens() {
           }
           return { ...s, status: 'offline' };
         }
-        // Screen back online — clear notification flag
-        if (s.status !== 'offline') {
+
+        // Screen came back — clear the notification flag
+        if (!shouldBeOffline && s.status === 'offline') {
           notifiedOfflineRef.delete(s.id);
         }
+
         return s;
       }));
     }, 30 * 1000);
@@ -231,6 +237,7 @@ export default function Screens() {
     return () => {
       supabase.removeChannel(channel);
       clearInterval(statusChecker);
+      clearTimeout(initTimer);
     };
   }, [toast]);
 
