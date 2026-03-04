@@ -78,7 +78,8 @@ import {
   deleteScreen,
   deleteBranch,
   deleteScreenGroup,
-  toggleScreenPlaying
+  toggleScreenPlaying,
+  toggleScreenActive
 } from '@/lib/api';
 import { getPlaylistsForTarget } from '@/lib/api/playlists';
 import { Screen, Branch, ScreenGroup, Playlist } from '@/lib/types';
@@ -270,6 +271,26 @@ export default function Screens() {
       toast({
         title: 'Error',
         description: 'Failed to toggle playback.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleToggleActive = async (screen: Screen) => {
+    const newState = !screen.isActive;
+    try {
+      await toggleScreenActive(screen.id, newState);
+      setScreens(prev => prev.map(s => 
+        s.id === screen.id ? { ...s, isActive: newState } : s
+      ));
+      toast({
+        title: newState ? 'Screen Enabled' : 'Screen Disabled',
+        description: `"${screen.name}" display URL is now ${newState ? 'active' : 'disabled'}.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to toggle screen.',
         variant: 'destructive',
       });
     }
@@ -792,6 +813,18 @@ export default function Screens() {
                         </div>
 
                         <div className="pt-3 border-t border-border space-y-2">
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="text-muted-foreground">Screen URL Active</span>
+                            <div className="flex items-center gap-2">
+                              <span className={cn("text-xs font-medium", screen.isActive ? 'text-success' : 'text-destructive')}>
+                                {screen.isActive ? 'Enabled' : 'Disabled'}
+                              </span>
+                              <Switch 
+                                checked={screen.isActive} 
+                                onCheckedChange={() => handleToggleActive(screen)}
+                              />
+                            </div>
+                          </div>
                           <div className="flex justify-between items-center text-sm">
                             <span className="text-muted-foreground">Content Playback</span>
                             <div className="flex items-center gap-2">
