@@ -330,21 +330,50 @@ export default function Display() {
   useEffect(() => {
     if (!screen?.id) return;
 
+    const screenId = screen.id;
+
     const heartbeat = async () => {
       if (!navigator.onLine) return;
-      
       try {
-        await updateScreenStatus(screen.id, 'online');
+        await updateScreenStatus(screenId, 'online');
       } catch (err) {
         console.error('Heartbeat failed:', err);
       }
+    };
+
+    const markOffline = () => {
+      // Use sendBeacon for reliable delivery even on page unload
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/screens?id=eq.${screenId}`;
+      const body = JSON.stringify({ status: 'offline', updated_at: new Date().toISOString() });
+      navigator.sendBeacon(
+        url + '&apikey=' + import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        new Blob([body], { type: 'application/json' })
+      );
     };
 
     // Send immediately on mount
     heartbeat();
 
     const interval = setInterval(heartbeat, 60 * 1000); // 60 seconds
-    return () => clearInterval(interval);
+
+    // Mark offline when tab/browser closes
+    const handleBeforeUnload = () => markOffline();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        markOffline();
+      } else {
+        heartbeat();
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [screen?.id]);
 
   // Enter Fullscreen
