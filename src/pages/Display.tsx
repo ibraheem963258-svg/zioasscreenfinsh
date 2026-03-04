@@ -342,7 +342,7 @@ export default function Display() {
     };
 
     const markOffline = () => {
-      // Use sendBeacon for reliable delivery even on page unload
+      // Use sendBeacon for reliable delivery even on actual page close
       const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/screens?id=eq.${screenId}`;
       const body = JSON.stringify({ status: 'offline', updated_at: new Date().toISOString() });
       navigator.sendBeacon(
@@ -356,23 +356,14 @@ export default function Display() {
 
     const interval = setInterval(heartbeat, 60 * 1000); // 60 seconds
 
-    // Mark offline when tab/browser closes
+    // Mark offline ONLY when the page is truly being closed/unloaded
+    // NOT on visibilitychange (tab switch, minimize) — that causes false offline alerts
     const handleBeforeUnload = () => markOffline();
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        markOffline();
-      } else {
-        heartbeat();
-      }
-    };
-
     window.addEventListener('beforeunload', handleBeforeUnload);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       clearInterval(interval);
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [screen?.id]);
 
