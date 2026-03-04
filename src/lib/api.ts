@@ -132,12 +132,11 @@ export async function getScreens(): Promise<Screen[]> {
       resolution: s.resolution,
       status,
       isPlaying: s.is_playing ?? true,
+      isActive: (s as any).is_active ?? true,
       lastHeartbeat: s.last_heartbeat ? new Date(s.last_heartbeat) : null,
       lastUpdated: new Date(s.updated_at),
       contentIds: contentAssignments.filter(c => c.target_id === s.id).map(c => c.content_id),
       currentPlaylistId: s.current_playlist_id,
-      // حقول البث المباشر
-      // Live stream fields
       liveStreamUrl: (s as any).live_stream_url || null,
       liveStreamEnabled: (s as any).live_stream_enabled || false,
     };
@@ -179,6 +178,7 @@ export async function createScreen(
     resolution: data.resolution,
     status: data.status as 'online' | 'offline' | 'idle',
     isPlaying: data.is_playing ?? true,
+    isActive: (data as any).is_active ?? true,
     lastHeartbeat: data.last_heartbeat ? new Date(data.last_heartbeat) : null,
     lastUpdated: new Date(data.updated_at),
     contentIds: [],
@@ -212,6 +212,16 @@ export async function toggleScreenPlaying(id: string, isPlaying: boolean): Promi
   
   if (error) throw error;
 }
+
+export async function toggleScreenActive(id: string, isActive: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('screens')
+    .update({ is_active: isActive } as any)
+    .eq('id', id);
+  
+  if (error) throw error;
+}
+
 
 // Content
 export async function getContent(): Promise<ContentItem[]> {
@@ -549,6 +559,7 @@ export async function getScreenContent(slug: string): Promise<{ screen: Screen |
     resolution: screenData.resolution,
     status,
     isPlaying: screenData.is_playing ?? true,
+    isActive: (screenData as any).is_active ?? true,
     lastHeartbeat: screenData.last_heartbeat ? new Date(screenData.last_heartbeat) : null,
     lastUpdated: new Date(screenData.updated_at),
     contentIds: Array.from(relevantContentIds),

@@ -380,6 +380,7 @@ export type Database = {
           created_at: string
           current_playlist_id: string | null
           id: string
+          is_active: boolean
           is_playing: boolean
           last_heartbeat: string | null
           live_stream_enabled: boolean | null
@@ -396,6 +397,7 @@ export type Database = {
           created_at?: string
           current_playlist_id?: string | null
           id?: string
+          is_active?: boolean
           is_playing?: boolean
           last_heartbeat?: string | null
           live_stream_enabled?: boolean | null
@@ -412,6 +414,7 @@ export type Database = {
           created_at?: string
           current_playlist_id?: string | null
           id?: string
+          is_active?: boolean
           is_playing?: boolean
           last_heartbeat?: string | null
           live_stream_enabled?: boolean | null

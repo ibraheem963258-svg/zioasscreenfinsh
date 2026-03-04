@@ -131,6 +131,7 @@ export default function Display() {
         resolution: screenData.resolution,
         status: screenData.status as 'online' | 'offline' | 'idle',
         isPlaying: screenData.is_playing ?? true,
+        isActive: (screenData as any).is_active ?? true,
         lastHeartbeat: screenData.last_heartbeat ? new Date(screenData.last_heartbeat) : null,
         lastUpdated: new Date(screenData.updated_at),
         contentIds: [],
@@ -369,6 +370,18 @@ export default function Display() {
       />
     );
   }
+
+  // Screen disabled by admin
+  if (!screen.isActive) {
+    return (
+      <ErrorScreen
+        title="Screen Disabled"
+        message="This screen has been disabled. Please contact your administrator."
+      />
+    );
+  }
+
+
 
   // Error with no content
   if (error && !content.length) {

@@ -26,6 +26,7 @@ export interface Screen {
   resolution: string;
   status: 'online' | 'offline' | 'idle';
   isPlaying: boolean;
+  isActive: boolean;
   lastHeartbeat: Date | null;
   lastUpdated: Date;
   contentIds: string[];
