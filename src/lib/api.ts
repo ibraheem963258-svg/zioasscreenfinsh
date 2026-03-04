@@ -122,7 +122,8 @@ export async function getScreens(): Promise<Screen[]> {
       ? (Date.now() - lastHeartbeat.getTime()) / 60000
       : Infinity;
 
-    if (minutesSinceHeartbeat > 10) {
+    // Offline if no heartbeat for > 2 minutes (heartbeat is sent every 60s)
+    if (minutesSinceHeartbeat > 2) {
       status = 'offline';
     } else if (isOnline && !hasActivePlaylist) {
       status = 'idle';
