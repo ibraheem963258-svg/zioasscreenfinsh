@@ -128,6 +128,18 @@ export default function Screens() {
   useEffect(() => {
     fetchData();
 
+    // Periodic status check: marks screens offline if heartbeat > 2min (heartbeat is every 60s)
+    const statusChecker = setInterval(() => {
+      setScreens(prev => prev.map(s => {
+        if (!s.lastHeartbeat) return { ...s, status: 'offline' };
+        const minutesSince = (Date.now() - s.lastHeartbeat.getTime()) / 60000;
+        if (minutesSince > 2 && s.status !== 'offline') {
+          return { ...s, status: 'offline' };
+        }
+        return s;
+      }));
+    }, 30 * 1000);
+
     const channel = supabase
       .channel('screens-realtime')
       .on(
@@ -146,7 +158,7 @@ export default function Screens() {
               : Infinity;
             const hasActivePlaylist = updatedScreen.current_playlist_id !== null;
             let newStatus: 'online' | 'offline' | 'idle' = updatedScreen.status as 'online' | 'offline' | 'idle';
-            if (minutesSinceHeartbeat > 10) {
+            if (minutesSinceHeartbeat > 2) {
               newStatus = 'offline';
             } else if (newStatus === 'online' && !hasActivePlaylist) {
               newStatus = 'idle';
@@ -157,6 +169,7 @@ export default function Screens() {
                     ...s, 
                     status: newStatus,
                     isPlaying: updatedScreen.is_playing ?? true,
+                    isActive: updatedScreen.is_active ?? true,
                     lastHeartbeat,
                     lastUpdated: new Date(updatedScreen.updated_at),
                     currentPlaylistId: updatedScreen.current_playlist_id,
@@ -170,6 +183,7 @@ export default function Screens() {
 
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(statusChecker);
     };
   }, []);
 
@@ -270,13 +284,20 @@ export default function Screens() {
   const handleTogglePlaying = async (screen: Screen) => {
     const newState = !screen.isPlaying;
     try {
-      await toggleScreenPlaying(screen.id, newState);
+      // Update is_playing AND trigger force_refresh so screen reloads immediately
+      await supabase
+        .from('screens')
+        .update({ 
+          is_playing: newState, 
+          force_refresh_at: new Date().toISOString() 
+        } as any)
+        .eq('id', screen.id);
       setScreens(prev => prev.map(s => 
         s.id === screen.id ? { ...s, isPlaying: newState } : s
       ));
       toast({
-        title: newState ? 'Playing' : 'Paused',
-        description: `Content on "${screen.name}" is now ${newState ? 'playing' : 'paused'}.`,
+        title: newState ? '▶ Playing' : '⏸ Paused',
+        description: `"${screen.name}" ${newState ? 'resumed and refreshed' : 'paused and refreshed'}.`,
       });
     } catch (error) {
       toast({

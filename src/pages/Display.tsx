@@ -317,7 +317,7 @@ export default function Display() {
     };
   }, [screen?.id, setupRealtimeSubscription]);
 
-  // Heartbeat Mechanism
+  // Heartbeat Mechanism — every 60 seconds for accurate online/offline detection
   useEffect(() => {
     if (!screen?.id) return;
 
@@ -331,7 +331,10 @@ export default function Display() {
       }
     };
 
-    const interval = setInterval(heartbeat, 5 * 60 * 1000);
+    // Send immediately on mount
+    heartbeat();
+
+    const interval = setInterval(heartbeat, 60 * 1000); // 60 seconds
     return () => clearInterval(interval);
   }, [screen?.id]);
 
