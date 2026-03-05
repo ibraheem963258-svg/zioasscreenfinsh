@@ -35,30 +35,13 @@ function ConnectionStatusIndicator({
   status: ConnectionStatus; 
   attempts: number;
 }) {
-  if (status === 'connected') return null;
+  // Only show indicator when connection has completely failed — not during normal reconnection attempts
+  if (status !== 'failed') return null;
   
   return (
     <div className="fixed top-4 right-4 z-50 flex items-center gap-2 bg-background/90 backdrop-blur px-4 py-2 rounded-lg shadow-lg border">
-      {status === 'reconnecting' && (
-        <>
-          <div className="w-3 h-3 bg-warning rounded-full animate-pulse" />
-          <span className="text-sm text-warning">
-            Reconnecting... ({attempts})
-          </span>
-        </>
-      )}
-      {status === 'disconnected' && (
-        <>
-          <div className="w-3 h-3 bg-destructive rounded-full" />
-          <span className="text-sm text-destructive">Disconnected</span>
-        </>
-      )}
-      {status === 'failed' && (
-        <>
-          <div className="w-3 h-3 bg-destructive rounded-full" />
-          <span className="text-sm text-destructive">Connection failed - Reloading</span>
-        </>
-      )}
+      <div className="w-3 h-3 bg-destructive rounded-full" />
+      <span className="text-sm text-destructive">Connection failed - Reloading</span>
     </div>
   );
 }
