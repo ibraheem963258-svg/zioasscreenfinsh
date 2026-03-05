@@ -375,14 +375,16 @@ export default function Display() {
     return () => clearTimeout(timer);
   }, [enterFullscreen]);
 
-  // Periodic Reload for Stability (every hour)
+  // Periodic soft refresh every hour — re-fetches data WITHOUT reloading the page
+  // This avoids re-downloading cached media files (saves egress)
   useEffect(() => {
     const refreshInterval = setInterval(() => {
-      window.location.reload();
+      console.log('[Display] Hourly soft refresh — fetching data without page reload');
+      fetchData();
     }, 60 * 60 * 1000);
 
     return () => clearInterval(refreshInterval);
-  }, []);
+  }, [fetchData]);
 
 
   // Handle Playlist Transition End
