@@ -13,6 +13,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { ContentItem, DisplaySettings } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { getVideoBlobUrl, preloadVideoToCache, isIndexedDBSupported } from '@/hooks/useVideoCache';
 
 interface ContentRendererProps {
   /** Content list for display */
@@ -39,6 +40,9 @@ export function ContentRenderer({
   // Preload states
   const [loadedIndexes, setLoadedIndexes] = useState<Set<number>>(new Set([0]));
   const [preloadedContent, setPreloadedContent] = useState<Map<number, boolean>>(new Map());
+
+  // IndexedDB cached blob URLs — survive TV power cycles
+  const [cachedUrls, setCachedUrls] = useState<Map<string, string>>(new Map());
   
   // Display order (for shuffle)
   const [displayOrder, setDisplayOrder] = useState<number[]>(() => 
@@ -49,6 +53,32 @@ export function ContentRenderer({
   const videoRef = useRef<HTMLVideoElement>(null);
   const nextVideoRef = useRef<HTMLVideoElement>(null);
   const preloadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Resolve video URLs from IndexedDB cache
+  useEffect(() => {
+    if (!isIndexedDBSupported()) return;
+    const videos = content.filter(c => c.type === 'video');
+    videos.forEach(async (item) => {
+      if (cachedUrls.has(item.url)) return;
+      const blobUrl = await getVideoBlobUrl(item.url);
+      if (blobUrl !== item.url) {
+        setCachedUrls(prev => new Map(prev).set(item.url, blobUrl));
+      }
+    });
+  }, [content]);
+
+  // Preload next videos to cache in background
+  useEffect(() => {
+    if (!isIndexedDBSupported()) return;
+    content.filter(c => c.type === 'video').forEach(item => {
+      preloadVideoToCache(item.url);
+    });
+  }, [content]);
+
+  // Helper to get resolved URL (blob or remote)
+  const resolveUrl = useCallback((url: string) => {
+    return cachedUrls.get(url) ?? url;
+  }, [cachedUrls]);
 
   // Initialize Display Order
   useEffect(() => {
@@ -322,7 +352,7 @@ export function ContentRenderer({
         ) : (
           <video
             ref={videoRef}
-            src={currentContent.url}
+            src={resolveUrl(currentContent.url)}
             className={cn("w-full h-full", getScalingClass())}
             autoPlay
             muted
@@ -359,7 +389,7 @@ export function ContentRenderer({
           ) : (
             <video
               ref={nextVideoRef}
-              src={nextContent.url}
+              src={resolveUrl(nextContent.url)}
               className={cn("w-full h-full", getScalingClass())}
               preload="auto"
               muted
@@ -383,7 +413,7 @@ export function ContentRenderer({
             item.type === 'image' ? (
               <img key={item.id} src={item.url} alt="" />
             ) : (
-              <video key={item.id} src={item.url} preload="metadata" muted />
+              <video key={item.id} src={resolveUrl(item.url)} preload="metadata" muted />
             )
           )
         ))}
