@@ -28,6 +28,7 @@ import { useReconnection, ConnectionStatus } from '@/hooks/useReconnection';
 // ======================================
 // Connection Status Component
 // ======================================
+//hatem 
 function ConnectionStatusIndicator({ 
   status, 
   attempts 
