@@ -2,27 +2,82 @@ import { supabase } from '@/integrations/supabase/client';
 import { Playlist, PlaylistItem, ContentItem } from '../types';
 
 export async function getPlaylists(): Promise<Playlist[]> {
-  const { data: playlistsData, error: playlistsError } = await supabase
-    .from('playlists')
-    .select('*')
-    .order('created_at', { ascending: false });
+  const [
+    { data: playlistsData, error: playlistsError },
+    { data: itemsData, error: itemsError },
+    { data: screensData },
+    { data: groupAssignmentsData },
+  ] = await Promise.all([
+    supabase.from('playlists').select('*').order('created_at', { ascending: false }),
+    supabase.from('playlist_items').select('*').order('display_order', { ascending: true }),
+    supabase.from('screens').select('id, current_playlist_id, branch_id'),
+    supabase.from('screen_group_assignments').select('screen_id, group_id'),
+  ]);
   
   if (playlistsError) throw playlistsError;
-
-  const { data: itemsData, error: itemsError } = await supabase
-    .from('playlist_items')
-    .select('*')
-    .order('display_order', { ascending: true });
-  
   if (itemsError) throw itemsError;
+
+  const screens = screensData || [];
+  const groupAssignments = groupAssignmentsData || [];
+
+  // Build a set of playlist IDs that are truly active on at least one screen
+  const effectivelyActiveIds = new Set<string>();
+
+  for (const playlist of playlistsData) {
+    if (!playlist.is_active) continue;
+
+    if (playlist.target_type === 'screen') {
+      // Active only if the screen's current_playlist_id points to this playlist
+      const screen = screens.find(s => s.id === playlist.target_id);
+      if (screen?.current_playlist_id === playlist.id) {
+        effectivelyActiveIds.add(playlist.id);
+      }
+    } else if (playlist.target_type === 'group') {
+      // Active if at least one screen is in this group AND has no screen-level active playlist
+      const screenIdsInGroup = groupAssignments
+        .filter(ga => ga.group_id === playlist.target_id)
+        .map(ga => ga.screen_id);
+      
+      const hasAffectedScreen = screenIdsInGroup.some(screenId => {
+        const screen = screens.find(s => s.id === screenId);
+        if (!screen) return false;
+        // Check if screen has its own active playlist (which would override group)
+        const hasScreenPlaylist = playlistsData.some(
+          p => p.is_active && p.target_type === 'screen' && p.target_id === screenId
+        );
+        return !hasScreenPlaylist;
+      });
+      
+      if (hasAffectedScreen) effectivelyActiveIds.add(playlist.id);
+    } else if (playlist.target_type === 'branch') {
+      // Active if at least one screen in this branch has no higher-priority active playlist
+      const branchScreens = screens.filter(s => s.branch_id === playlist.target_id);
+      
+      const hasAffectedScreen = branchScreens.some(screen => {
+        const screenGroupIds = groupAssignments
+          .filter(ga => ga.screen_id === screen.id)
+          .map(ga => ga.group_id);
+        
+        const hasScreenPlaylist = playlistsData.some(
+          p => p.is_active && p.target_type === 'screen' && p.target_id === screen.id
+        );
+        const hasGroupPlaylist = playlistsData.some(
+          p => p.is_active && p.target_type === 'group' && screenGroupIds.includes(p.target_id)
+        );
+        return !hasScreenPlaylist && !hasGroupPlaylist;
+      });
+      
+      if (hasAffectedScreen) effectivelyActiveIds.add(playlist.id);
+    }
+  }
 
   return playlistsData.map(p => ({
     id: p.id,
     name: p.name,
     targetType: p.target_type as 'screen' | 'group' | 'branch',
     targetId: p.target_id,
-    isActive: p.is_active,
-    items: itemsData
+    isActive: effectivelyActiveIds.has(p.id),
+    items: (itemsData || [])
       .filter(i => i.playlist_id === p.id)
       .map(i => ({
         id: i.id,
