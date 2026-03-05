@@ -9,13 +9,13 @@
 
 const CACHE_NAME = 'media-cache-v1';
 
-// Only cache Supabase Storage media files
+// Only cache images from Supabase Storage — videos use IndexedDB cache instead
 const isMediaRequest = (url) => {
-  return (
-    url.includes('/storage/v1/object/public/') &&
-    (url.match(/\.(jpg|jpeg|png|gif|webp|mp4|webm|mov|avi)(\?|$)/i) ||
-     url.includes('/content/'))
-  );
+  if (!url.includes('/storage/v1/object/public/')) return false;
+  // Skip videos — they use Range Requests for streaming; SW breaks them
+  if (url.match(/\.(mp4|webm|mov|avi|mkv)(\?|$)/i)) return false;
+  // Only cache images
+  return url.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?|$)/i) !== null;
 };
 
 self.addEventListener('install', (event) => {
