@@ -360,16 +360,18 @@ export default function Display() {
     return () => clearTimeout(timer);
   }, [enterFullscreen]);
 
-  // Hourly soft refresh — re-fetches data WITHOUT reloading (saves egress)
+  // Soft refresh every 6 hours — re-fetches JSON data WITHOUT reloading media (saves egress)
+  // Reduced from 1h → 6h: saves ~120 small API requests/screen/day
   useEffect(() => {
     const refreshInterval = setInterval(() => {
-      console.log('[Display] Hourly soft refresh');
+      console.log('[Display] 6h soft refresh');
       fetchData();
-    }, 60 * 60 * 1000);
+    }, 6 * 60 * 60 * 1000);
     return () => clearInterval(refreshInterval);
   }, [fetchData]);
 
-  // Fallback polling every 30s — catches playlist changes if Realtime is silent
+  // Fallback polling every 5 minutes — catches playlist changes if Realtime is silent
+  // Reduced from 30s → 5min: saves ~96% of fallback poll requests
   useEffect(() => {
     if (!screen?.id) return;
     const screenId = screen.id;
@@ -394,7 +396,7 @@ export default function Display() {
       }
     };
 
-    const pollInterval = setInterval(poll, 30 * 1000);
+    const pollInterval = setInterval(poll, 5 * 60 * 1000); // 5 minutes
     return () => clearInterval(pollInterval);
   }, [screen?.id]);
 

@@ -61,6 +61,17 @@ export function FileUploadZone({ onUploadComplete, onClose }: FileUploadZoneProp
       return;
     }
 
+    // Warn if video exceeds 120MB — impacts monthly egress on Samsung TVs
+    const RECOMMENDED_MAX = 120 * 1024 * 1024;
+    if (selectedFile.type.startsWith('video/') && selectedFile.size > RECOMMENDED_MAX) {
+      toast({
+        title: '⚠️ Large video file',
+        description: `This file is ${(selectedFile.size / (1024 * 1024)).toFixed(0)}MB. For 70+ screens, videos above 120MB can increase monthly data costs. Consider compressing before uploading.`,
+        variant: 'default',
+        duration: 8000,
+      });
+    }
+
     setFile(selectedFile);
     setContentName(selectedFile.name.replace(/\.[^/.]+$/, ''));
 
