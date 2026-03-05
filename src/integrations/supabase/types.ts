@@ -472,6 +472,36 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      estimate_monthly_egress: {
+        Args: {
+          p_android_screens?: number
+          p_samsung_screens?: number
+          p_updates_per_month?: number
+        }
+        Returns: Json
+      }
+      get_content_storage_stats: { Args: never; Returns: Json }
+      get_screens_with_status: {
+        Args: never
+        Returns: {
+          branch_id: string
+          computed_status: string
+          current_playlist_id: string
+          force_refresh_at: string
+          id: string
+          is_active: boolean
+          is_playing: boolean
+          last_heartbeat: string
+          live_stream_enabled: boolean
+          live_stream_url: string
+          minutes_since_heartbeat: number
+          name: string
+          orientation: string
+          resolution: string
+          slug: string
+          updated_at: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

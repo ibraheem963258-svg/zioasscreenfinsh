@@ -91,63 +91,35 @@ export async function deleteScreenGroup(id: string): Promise<void> {
 
 // Screens
 export async function getScreens(): Promise<Screen[]> {
-  const { data: screensData, error: screensError } = await supabase
-    .from('screens')
-    .select('*')
-    .order('created_at', { ascending: false });
-  
+  // Use server-side RPC for accurate status calculation (avoids client clock drift)
+  const [{ data: screensData, error: screensError }, { data: assignmentsData }, { data: contentAssignments }] =
+    await Promise.all([
+      supabase.rpc('get_screens_with_status').order('updated_at', { ascending: false }),
+      supabase.from('screen_group_assignments').select('screen_id, group_id'),
+      supabase.from('content_assignments').select('content_id, target_id').eq('target_type', 'screen'),
+    ]);
+
   if (screensError) throw screensError;
 
-  const { data: assignmentsData, error: assignmentsError } = await supabase
-    .from('screen_group_assignments')
-    .select('*');
-  
-  if (assignmentsError) throw assignmentsError;
-
-  const { data: contentAssignments, error: contentError } = await supabase
-    .from('content_assignments')
-    .select('*')
-    .eq('target_type', 'screen');
-  
-  if (contentError) throw contentError;
-
-  return screensData.map(s => {
-    const hasActivePlaylist = s.current_playlist_id !== null;
-    const isOnline = s.status === 'online';
-    let status: 'online' | 'offline' | 'idle' = s.status as 'online' | 'offline';
-    
-    // Mark as offline if no heartbeat in the last 10 minutes
-    const lastHeartbeat = s.last_heartbeat ? new Date(s.last_heartbeat) : null;
-    const minutesSinceHeartbeat = lastHeartbeat
-      ? (Date.now() - lastHeartbeat.getTime()) / 60000
-      : Infinity;
-
-    // Offline if no heartbeat for > 2 minutes (heartbeat is sent every 60s)
-    if (minutesSinceHeartbeat > 2) {
-      status = 'offline';
-    } else if (isOnline && !hasActivePlaylist) {
-      status = 'idle';
-    }
-
-    return {
-      id: s.id,
-      name: s.name,
-      slug: s.slug,
-      branchId: s.branch_id,
-      groupIds: assignmentsData.filter(a => a.screen_id === s.id).map(a => a.group_id),
-      orientation: s.orientation as 'landscape' | 'portrait',
-      resolution: s.resolution,
-      status,
-      isPlaying: s.is_playing ?? true,
-      isActive: (s as any).is_active ?? true,
-      lastHeartbeat: s.last_heartbeat ? new Date(s.last_heartbeat) : null,
-      lastUpdated: new Date(s.updated_at),
-      contentIds: contentAssignments.filter(c => c.target_id === s.id).map(c => c.content_id),
-      currentPlaylistId: s.current_playlist_id,
-      liveStreamUrl: (s as any).live_stream_url || null,
-      liveStreamEnabled: (s as any).live_stream_enabled || false,
-    };
-  });
+  return (screensData as any[]).map(s => ({
+    id: s.id,
+    name: s.name,
+    slug: s.slug,
+    branchId: s.branch_id,
+    groupIds: (assignmentsData || []).filter((a: any) => a.screen_id === s.id).map((a: any) => a.group_id),
+    orientation: s.orientation as 'landscape' | 'portrait',
+    resolution: s.resolution,
+    // computed_status is calculated server-side — always accurate
+    status: s.computed_status as 'online' | 'offline' | 'idle',
+    isPlaying: s.is_playing ?? true,
+    isActive: s.is_active ?? true,
+    lastHeartbeat: s.last_heartbeat ? new Date(s.last_heartbeat) : null,
+    lastUpdated: new Date(s.updated_at),
+    contentIds: (contentAssignments || []).filter((c: any) => c.target_id === s.id).map((c: any) => c.content_id),
+    currentPlaylistId: s.current_playlist_id,
+    liveStreamUrl: s.live_stream_url || null,
+    liveStreamEnabled: s.live_stream_enabled || false,
+  }));
 }
 
 export async function createScreen(
@@ -454,34 +426,25 @@ export async function updateSchedule(
   if (error) throw error;
 }
 
-// Dashboard Stats
+// Dashboard Stats — uses server-side RPC for accurate status (no client clock dependency)
 export async function getDashboardStats(): Promise<DashboardStats> {
-  const [branches, groups, screens, content, schedules, playlists] = await Promise.all([
-    supabase.from('branches').select('id', { count: 'exact' }),
-    supabase.from('screen_groups').select('id', { count: 'exact' }),
-    supabase.from('screens').select('id, status, current_playlist_id, last_heartbeat, is_playing'),
-    supabase.from('content').select('id', { count: 'exact' }),
+  const [screensRpc, branches, groups, content, schedules, playlists] = await Promise.all([
+    // RPC computes status server-side — accurate to the second, no client drift
+    supabase.rpc('get_screens_with_status'),
+    supabase.from('branches').select('id', { count: 'exact', head: true }),
+    supabase.from('screen_groups').select('id', { count: 'exact', head: true }),
+    supabase.from('content').select('id', { count: 'exact', head: true }),
     supabase.from('schedules').select('id, is_active'),
     supabase.from('playlists').select('id, is_active'),
   ]);
 
-  const screensData = screens.data || [];
+  const screensData = (screensRpc.data as any[]) || [];
   const schedulesData = schedules.data || [];
   const playlistsData = playlists.data || [];
 
-  // Recalculate status using heartbeat (same logic as getScreens)
-  const computeStatus = (s: { status: string; last_heartbeat: string | null; current_playlist_id: string | null; is_playing: boolean }): 'online' | 'offline' | 'idle' => {
-    const lastHeartbeat = s.last_heartbeat ? new Date(s.last_heartbeat) : null;
-    const minutesSince = lastHeartbeat ? (Date.now() - lastHeartbeat.getTime()) / 60000 : Infinity;
-    if (minutesSince > 2) return 'offline';
-    if (!s.is_playing) return 'idle';
-    if (s.current_playlist_id === null) return 'idle';
-    return 'online';
-  };
-
-  const onlineScreens = screensData.filter(s => computeStatus(s) === 'online').length;
-  const idleScreens = screensData.filter(s => computeStatus(s) === 'idle').length;
-  const offlineScreens = screensData.filter(s => computeStatus(s) === 'offline').length;
+  const onlineScreens  = screensData.filter(s => s.computed_status === 'online').length;
+  const idleScreens    = screensData.filter(s => s.computed_status === 'idle').length;
+  const offlineScreens = screensData.filter(s => s.computed_status === 'offline').length;
 
   return {
     totalScreens: screensData.length,
@@ -493,6 +456,55 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     totalContent: content.count || 0,
     activePlaylists: playlistsData.filter(p => p.is_active).length,
     activeSchedules: schedulesData.filter(s => s.is_active).length,
+  };
+}
+
+// Storage & Egress stats — computed server-side from real file_size values
+export async function getContentStorageStats(): Promise<{
+  totalFiles: number; totalBytes: number; totalGb: number;
+  videoFiles: number; videoBytes: number;
+  imageFiles: number; imageBytes: number;
+  avgVideoBytes: number;
+} | null> {
+  const { data, error } = await supabase.rpc('get_content_storage_stats');
+  if (error) { console.error('[Storage stats] RPC failed:', error); return null; }
+  const d = data as any;
+  return {
+    totalFiles:    Number(d.total_files    ?? 0),
+    totalBytes:    Number(d.total_bytes    ?? 0),
+    totalGb:       Number(d.total_gb       ?? 0),
+    videoFiles:    Number(d.video_files    ?? 0),
+    videoBytes:    Number(d.video_bytes    ?? 0),
+    imageFiles:    Number(d.image_files    ?? 0),
+    imageBytes:    Number(d.image_bytes    ?? 0),
+    avgVideoBytes: Number(d.avg_video_bytes ?? 0),
+  };
+}
+
+// Egress estimate — server-side calculation based on real file sizes
+export async function estimateMonthlyEgress(
+  androidScreens = 0,
+  samsungScreens = 0,
+  updatesPerMonth = 4
+): Promise<{
+  totalContentGb: number; androidMonthlyGb: number; samsungMonthlyGb: number;
+  totalMonthlyGb: number; budgetGb: number; withinBudget: boolean; budgetUsedPct: number;
+} | null> {
+  const { data, error } = await supabase.rpc('estimate_monthly_egress', {
+    p_android_screens: androidScreens,
+    p_samsung_screens: samsungScreens,
+    p_updates_per_month: updatesPerMonth,
+  });
+  if (error) { console.error('[Egress estimate] RPC failed:', error); return null; }
+  const d = data as any;
+  return {
+    totalContentGb:   Number(d.total_content_gb   ?? 0),
+    androidMonthlyGb: Number(d.android_monthly_gb ?? 0),
+    samsungMonthlyGb: Number(d.samsung_monthly_gb ?? 0),
+    totalMonthlyGb:   Number(d.total_monthly_gb   ?? 0),
+    budgetGb:         Number(d.budget_gb          ?? 250),
+    withinBudget:     Boolean(d.within_budget),
+    budgetUsedPct:    Number(d.budget_used_pct    ?? 0),
   };
 }
 
