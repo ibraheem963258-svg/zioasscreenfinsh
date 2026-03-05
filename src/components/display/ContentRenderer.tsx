@@ -41,8 +41,9 @@ export function ContentRenderer({
   const [loadedIndexes, setLoadedIndexes] = useState<Set<number>>(new Set([0]));
   const [preloadedContent, setPreloadedContent] = useState<Map<number, boolean>>(new Map());
 
-  // IndexedDB cached blob URLs — survive TV power cycles
-  const [cachedUrls, setCachedUrls] = useState<Map<string, string>>(new Map());
+  // IndexedDB cached blob URLs — use ref to avoid re-renders that interrupt video playback
+  const cachedUrlsRef = useRef<Map<string, string>>(new Map());
+  const [cachedUrlsVersion, setCachedUrlsVersion] = useState(0);
   
   // Display order (for shuffle)
   const [displayOrder, setDisplayOrder] = useState<number[]>(() => 
@@ -55,14 +56,14 @@ export function ContentRenderer({
   const preloadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Pre-resolve all video URLs to blob URLs BEFORE render to avoid mid-playback src changes
+  // Uses a ref so state updates don't cause video element re-renders (which interrupt playback)
   useEffect(() => {
     if (!isIndexedDBSupported()) return;
     const videos = content.filter(c => c.type === 'video');
     
-    // Resolve all URLs upfront in parallel, then set state once
     Promise.all(
       videos
-        .filter(item => !cachedUrls.has(item.url))
+        .filter(item => !cachedUrlsRef.current.has(item.url))
         .map(async (item) => {
           const blobUrl = await getVideoBlobUrl(item.url);
           return { original: item.url, blob: blobUrl };
@@ -70,19 +71,19 @@ export function ContentRenderer({
     ).then(results => {
       const updates = results.filter(r => r.blob !== r.original);
       if (updates.length > 0) {
-        setCachedUrls(prev => {
-          const next = new Map(prev);
-          updates.forEach(r => next.set(r.original, r.blob));
-          return next;
-        });
+        updates.forEach(r => cachedUrlsRef.current.set(r.original, r.blob));
+        // Trigger one re-render so resolveUrl picks up new values
+        setCachedUrlsVersion(v => v + 1);
       }
     });
   }, [content]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Helper to get resolved URL (blob or remote) — stable reference
+  // Helper to get resolved URL (blob or remote)
+  // cachedUrlsVersion dependency ensures we re-read after cache updates
   const resolveUrl = useCallback((url: string) => {
-    return cachedUrls.get(url) ?? url;
-  }, [cachedUrls]);
+    return cachedUrlsRef.current.get(url) ?? url;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cachedUrlsVersion]);
 
   // Initialize Display Order
   useEffect(() => {
@@ -191,29 +192,16 @@ export function ContentRenderer({
   }, [content.length, goToNext]);
 
   // Auto-resume if video is paused externally (e.g., by remote control)
+  // Uses pause event only — NO polling interval to avoid CPU load
   useEffect(() => {
     if (!isPlaying) return;
-    
-    const checkAndResume = () => {
-      if (videoRef.current && videoRef.current.paused && isPlaying) {
-        console.log('Video paused externally - auto-resuming for Digital Signage');
-        videoRef.current.play().catch(console.error);
-      }
-    };
 
-    // Check every 500ms if video is paused
-    const interval = setInterval(checkAndResume, 500);
-    
-    // Also listen for pause events
     const handlePause = () => {
-      if (isPlaying && videoRef.current) {
-        setTimeout(() => {
-          if (videoRef.current && videoRef.current.paused && isPlaying) {
-            console.log('Resuming video after external pause');
-            videoRef.current.play().catch(console.error);
-          }
-        }, 100);
-      }
+      setTimeout(() => {
+        if (videoRef.current && videoRef.current.paused && isPlaying) {
+          videoRef.current.play().catch(console.error);
+        }
+      }, 150);
     };
 
     const video = videoRef.current;
@@ -222,7 +210,6 @@ export function ContentRenderer({
     }
 
     return () => {
-      clearInterval(interval);
       if (video) {
         video.removeEventListener('pause', handlePause);
       }
@@ -410,18 +397,7 @@ export function ContentRenderer({
         </div>
       )}
 
-      {/* Hidden Preloading */}
-      <div className="hidden">
-        {content.slice(0, 3).map((item, idx) => (
-          idx !== contentIdx && (
-            item.type === 'image' ? (
-              <img key={item.id} src={item.url} alt="" />
-            ) : (
-              <video key={item.id} src={resolveUrl(item.url)} preload="metadata" muted />
-            )
-          )
-        ))}
-      </div>
+
 
       {/* Progress Indicators */}
       {content.length > 1 && (
