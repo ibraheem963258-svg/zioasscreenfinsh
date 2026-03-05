@@ -51,6 +51,16 @@ export function FileUploadZone({ onUploadComplete, onClose }: FileUploadZoneProp
       return;
     }
 
+    const MAX_SIZE = 300 * 1024 * 1024; // 300MB
+    if (selectedFile.size > MAX_SIZE) {
+      toast({
+        title: 'File too large',
+        description: 'Maximum file size is 300MB.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setFile(selectedFile);
     setContentName(selectedFile.name.replace(/\.[^/.]+$/, ''));
 
@@ -184,7 +194,7 @@ export function FileUploadZone({ onUploadComplete, onClose }: FileUploadZoneProp
               or click to browse
             </p>
             <p className="text-xs text-muted-foreground">
-              Supports: JPG, PNG, GIF, WEBP, MP4, WEBM (max 50MB)
+              Supports: JPG, PNG, GIF, WEBP, MP4, WEBM (max 300MB)
             </p>
           </label>
         </div>
