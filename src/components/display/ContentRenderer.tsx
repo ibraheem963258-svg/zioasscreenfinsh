@@ -308,7 +308,7 @@ export function ContentRenderer({
       </div>
 
       {/* ── Next Content (pre-staged for smooth transition) ── */}
-      {nextContent && nextContent.id !== currentContent.id && (
+      {content.length > 1 && nextContent && nextContent.id !== currentContent.id && (
         <div
           className={cn('absolute inset-0', settings.transitionType === 'fade' && 'pointer-events-none')}
           style={transitionStyles.next}

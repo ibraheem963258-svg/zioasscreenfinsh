@@ -285,7 +285,8 @@ export default function Display() {
         }
         
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-          console.error('Channel error:', err);
+          if (err) console.error('Channel error:', err);
+          else console.warn('Channel closed/timed out, will reconnect...');
         }
       });
 

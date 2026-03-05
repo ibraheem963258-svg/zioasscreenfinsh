@@ -299,9 +299,9 @@ export function PlaylistManager({
                   </p>
                 </div>
                 {playlist.isActive && (
-                  <Badge variant="outline" className="bg-success/20 text-success border-success/30">
+                  <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-success/20 text-success border-success/30">
                     Active
-                  </Badge>
+                  </span>
                 )}
               </div>
               <div className="flex items-center gap-2">
