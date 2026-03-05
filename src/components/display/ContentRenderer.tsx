@@ -54,28 +54,32 @@ export function ContentRenderer({
   const nextVideoRef = useRef<HTMLVideoElement>(null);
   const preloadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Resolve video URLs from IndexedDB cache
+  // Pre-resolve all video URLs to blob URLs BEFORE render to avoid mid-playback src changes
   useEffect(() => {
     if (!isIndexedDBSupported()) return;
     const videos = content.filter(c => c.type === 'video');
-    videos.forEach(async (item) => {
-      if (cachedUrls.has(item.url)) return;
-      const blobUrl = await getVideoBlobUrl(item.url);
-      if (blobUrl !== item.url) {
-        setCachedUrls(prev => new Map(prev).set(item.url, blobUrl));
+    
+    // Resolve all URLs upfront in parallel, then set state once
+    Promise.all(
+      videos
+        .filter(item => !cachedUrls.has(item.url))
+        .map(async (item) => {
+          const blobUrl = await getVideoBlobUrl(item.url);
+          return { original: item.url, blob: blobUrl };
+        })
+    ).then(results => {
+      const updates = results.filter(r => r.blob !== r.original);
+      if (updates.length > 0) {
+        setCachedUrls(prev => {
+          const next = new Map(prev);
+          updates.forEach(r => next.set(r.original, r.blob));
+          return next;
+        });
       }
     });
-  }, [content]);
+  }, [content]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Preload next videos to cache in background
-  useEffect(() => {
-    if (!isIndexedDBSupported()) return;
-    content.filter(c => c.type === 'video').forEach(item => {
-      preloadVideoToCache(item.url);
-    });
-  }, [content]);
-
-  // Helper to get resolved URL (blob or remote)
+  // Helper to get resolved URL (blob or remote) — stable reference
   const resolveUrl = useCallback((url: string) => {
     return cachedUrls.get(url) ?? url;
   }, [cachedUrls]);
