@@ -472,14 +472,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      estimate_monthly_egress: {
-        Args: {
-          p_android_screens?: number
-          p_samsung_screens?: number
-          p_updates_per_month?: number
-        }
-        Returns: Json
-      }
+      estimate_monthly_egress:
+        | {
+            Args: {
+              p_android_screens?: number
+              p_samsung_screens?: number
+              p_updates_per_month?: number
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_android_screens?: number
+              p_custom_content_bytes?: number
+              p_samsung_screens?: number
+              p_updates_per_month?: number
+            }
+            Returns: Json
+          }
       get_content_storage_stats: { Args: never; Returns: Json }
       get_screens_with_status: {
         Args: never
