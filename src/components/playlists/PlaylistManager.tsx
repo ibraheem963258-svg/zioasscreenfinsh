@@ -68,8 +68,6 @@ export function PlaylistManager({
   }, []);
 
   const handleAddToPlaylist = (contentItem: ContentItem) => {
-    if (selectedItems.find(i => i.contentId === contentItem.id)) return;
-    
     setSelectedItems([
       ...selectedItems,
       {
@@ -196,24 +194,16 @@ export function PlaylistManager({
               <div className="space-y-2">
                 <Label>Available Content</Label>
                 <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 border rounded-lg">
-                  {content.map((item) => {
-                    const isSelected = selectedItems.some(i => i.contentId === item.id);
-                    return (
-                      <div
-                        key={item.id}
-                        onClick={() => !isSelected && handleAddToPlaylist(item)}
-                        className={cn(
-                          "p-2 rounded-lg border cursor-pointer transition-colors",
-                          isSelected 
-                            ? "bg-muted opacity-50 cursor-not-allowed" 
-                            : "hover:bg-muted"
-                        )}
-                      >
-                        <p className="text-sm font-medium truncate">{item.name}</p>
-                        <p className="text-xs text-muted-foreground">{item.type} • {item.duration}s</p>
-                      </div>
-                    );
-                  })}
+                  {content.map((item) => (
+                    <div
+                      key={item.id}
+                      onClick={() => handleAddToPlaylist(item)}
+                      className="p-2 rounded-lg border cursor-pointer transition-colors hover:bg-muted"
+                    >
+                      <p className="text-sm font-medium truncate">{item.name}</p>
+                      <p className="text-xs text-muted-foreground">{item.type} • {item.duration}s</p>
+                    </div>
+                  ))}
                 </div>
               </div>
 
