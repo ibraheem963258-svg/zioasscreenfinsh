@@ -75,11 +75,16 @@ export default function Dashboard() {
       )
       .subscribe();
 
-    // ── Periodic local recompute every 30s (catches tabs closed / power off) ──
+    // ── Periodic local recompute every 60s — only recompute status locally, avoid extra API calls ──
+    let statsRefreshCount = 0;
     const statusInterval = setInterval(() => {
       setScreens(prev => prev.map(s => ({ ...s, status: computeScreenStatus(s) })));
-      getDashboardStats().then(setStats).catch(console.error);
-    }, 30 * 1000);
+      // Refresh stats only every 5 minutes (every 5th tick)
+      statsRefreshCount++;
+      if (statsRefreshCount % 5 === 0) {
+        getDashboardStats().then(setStats).catch(console.error);
+      }
+    }, 60 * 1000);
 
     return () => {
       supabase.removeChannel(channel);

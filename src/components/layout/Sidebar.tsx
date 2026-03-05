@@ -5,7 +5,7 @@
  * ======================================
  */
 
-import { NavLink, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Monitor, 
@@ -101,9 +101,9 @@ export function Sidebar() {
             {navigation.map((item) => {
               const isActive = location.pathname === item.href;
               return (
-                <Tooltip key={item.name}>
+            <Tooltip key={item.name}>
                   <TooltipTrigger asChild>
-                    <NavLink
+                    <Link
                       to={item.href}
                       className={cn(
                         'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
@@ -115,7 +115,7 @@ export function Sidebar() {
                     >
                       <item.icon className="h-5 w-5 flex-shrink-0" />
                       {!isCollapsed && <span className="truncate">{item.name}</span>}
-                    </NavLink>
+                    </Link>
                   </TooltipTrigger>
                   {isCollapsed && (
                     <TooltipContent side="right">
