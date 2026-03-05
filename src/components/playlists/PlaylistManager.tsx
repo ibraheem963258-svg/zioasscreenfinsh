@@ -12,13 +12,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Playlist, ContentItem } from '@/lib/types';
 import { getContent } from '@/lib/api';
@@ -40,6 +33,13 @@ interface PlaylistManagerProps {
   onPlaylistsChange: () => void;
 }
 
+interface SelectedItem {
+  contentId: string;
+  duration: number;
+  order: number;
+  uniqueKey: string;
+}
+
 export function PlaylistManager({
   targetType,
   targetId,
@@ -50,7 +50,7 @@ export function PlaylistManager({
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [content, setContent] = useState<ContentItem[]>([]);
   const [newPlaylistName, setNewPlaylistName] = useState('');
-  const [selectedItems, setSelectedItems] = useState<{ contentId: string; duration: number; order: number }[]>([]);
+  const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
   const [activateImmediately, setActivateImmediately] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -67,31 +67,31 @@ export function PlaylistManager({
     fetchContent();
   }, []);
 
+  // Allow adding the same content multiple times
   const handleAddToPlaylist = (contentItem: ContentItem) => {
-    if (selectedItems.find(i => i.contentId === contentItem.id)) return;
-    
-    setSelectedItems([
-      ...selectedItems,
+    setSelectedItems(prev => [
+      ...prev,
       {
         contentId: contentItem.id,
         duration: contentItem.duration || 10,
-        order: selectedItems.length,
+        order: prev.length,
+        uniqueKey: `${contentItem.id}-${Date.now()}-${Math.random()}`,
       },
     ]);
   };
 
-  const handleRemoveFromPlaylist = (contentId: string) => {
-    setSelectedItems(
-      selectedItems
-        .filter(i => i.contentId !== contentId)
+  const handleRemoveFromPlaylist = (uniqueKey: string) => {
+    setSelectedItems(prev =>
+      prev
+        .filter(i => i.uniqueKey !== uniqueKey)
         .map((item, idx) => ({ ...item, order: idx }))
     );
   };
 
-  const handleDurationChange = (contentId: string, duration: number) => {
-    setSelectedItems(
-      selectedItems.map(item =>
-        item.contentId === contentId ? { ...item, duration } : item
+  const handleDurationChange = (uniqueKey: string, duration: number) => {
+    setSelectedItems(prev =>
+      prev.map(item =>
+        item.uniqueKey === uniqueKey ? { ...item, duration } : item
       )
     );
   };
@@ -194,26 +194,18 @@ export function PlaylistManager({
               </div>
 
               <div className="space-y-2">
-                <Label>Available Content</Label>
+                <Label>Available Content <span className="text-xs text-muted-foreground">(click to add, duplicates allowed)</span></Label>
                 <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 border rounded-lg">
-                  {content.map((item) => {
-                    const isSelected = selectedItems.some(i => i.contentId === item.id);
-                    return (
-                      <div
-                        key={item.id}
-                        onClick={() => !isSelected && handleAddToPlaylist(item)}
-                        className={cn(
-                          "p-2 rounded-lg border cursor-pointer transition-colors",
-                          isSelected 
-                            ? "bg-muted opacity-50 cursor-not-allowed" 
-                            : "hover:bg-muted"
-                        )}
-                      >
-                        <p className="text-sm font-medium truncate">{item.name}</p>
-                        <p className="text-xs text-muted-foreground">{item.type} • {item.duration}s</p>
-                      </div>
-                    );
-                  })}
+                  {content.map((item) => (
+                    <div
+                      key={item.id}
+                      onClick={() => handleAddToPlaylist(item)}
+                      className="p-2 rounded-lg border cursor-pointer transition-colors hover:bg-muted"
+                    >
+                      <p className="text-sm font-medium truncate">{item.name}</p>
+                      <p className="text-xs text-muted-foreground">{item.type} • {item.duration}s</p>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -227,7 +219,7 @@ export function PlaylistManager({
                   <div className="space-y-2">
                     {selectedItems.map((item, idx) => (
                       <div
-                        key={item.contentId}
+                        key={item.uniqueKey}
                         className="flex items-center gap-3 p-2 border rounded-lg"
                       >
                         <GripVertical className="h-4 w-4 text-muted-foreground" />
@@ -237,7 +229,7 @@ export function PlaylistManager({
                           <Input
                             type="number"
                             value={item.duration}
-                            onChange={(e) => handleDurationChange(item.contentId, parseInt(e.target.value) || 10)}
+                            onChange={(e) => handleDurationChange(item.uniqueKey, parseInt(e.target.value) || 10)}
                             className="w-20 h-8"
                             min={1}
                           />
@@ -246,7 +238,7 @@ export function PlaylistManager({
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8"
-                            onClick={() => handleRemoveFromPlaylist(item.contentId)}
+                            onClick={() => handleRemoveFromPlaylist(item.uniqueKey)}
                           >
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>

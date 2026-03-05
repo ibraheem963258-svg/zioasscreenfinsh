@@ -59,7 +59,7 @@ export function PlaylistCreator({
   onCreatePlaylist,
 }: PlaylistCreatorProps) {
   const [step, setStep] = useState<Step>('select');
-  const [selectedContent, setSelectedContent] = useState<ContentItem[]>([]);
+  const [selectedContent, setSelectedContent] = useState<ContentItem[]>([]); // can have duplicates
   const [playlistItems, setPlaylistItems] = useState<PlaylistItem[]>([]);
   const [assignMode, setAssignMode] = useState<AssignMode>('screen');
   const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
@@ -79,12 +79,9 @@ export function PlaylistCreator({
     onOpenChange(false);
   };
 
+  // Allow adding the same item multiple times
   const toggleContentSelection = (item: ContentItem) => {
-    setSelectedContent(prev =>
-      prev.find(c => c.id === item.id)
-        ? prev.filter(c => c.id !== item.id)
-        : [...prev, item]
-    );
+    setSelectedContent(prev => [...prev, item]);
   };
 
   const goToArrange = () => {
@@ -238,18 +235,11 @@ export function PlaylistCreator({
           <div className="flex-1 min-h-0">
             <ScrollArea className="h-[350px] rounded-lg border p-2">
               <div className="grid grid-cols-2 gap-2">
-                {allContent.map((item) => {
-                  const isSelected = selectedContent.find(c => c.id === item.id);
-                  return (
+                {allContent.map((item) => (
                     <button
                       key={item.id}
                       onClick={() => toggleContentSelection(item)}
-                      className={cn(
-                        "flex items-center gap-3 p-3 rounded-lg text-left transition-all",
-                        isSelected
-                          ? "bg-primary/10 border-2 border-primary"
-                          : "bg-secondary/50 border-2 border-transparent hover:bg-secondary"
-                      )}
+                      className="flex items-center gap-3 p-3 rounded-lg text-left transition-all bg-secondary/50 border-2 border-transparent hover:bg-secondary hover:border-primary/50"
                     >
                       <div className="relative w-16 h-10 rounded overflow-hidden bg-secondary shrink-0">
                         <img
@@ -269,15 +259,14 @@ export function PlaylistCreator({
                         <p className="font-medium text-sm truncate">{item.name}</p>
                         <p className="text-xs text-muted-foreground">{item.duration}s</p>
                       </div>
-                      <Checkbox checked={!!isSelected} className="pointer-events-none" />
+                      <Plus className="h-4 w-4 text-muted-foreground shrink-0" />
                     </button>
-                  );
-                })}
+                  ))}
               </div>
             </ScrollArea>
             <div className="flex justify-between items-center mt-4">
               <p className="text-sm text-muted-foreground">
-                {selectedContent.length} items selected
+                {selectedContent.length} items selected (duplicates allowed)
               </p>
               <Button onClick={goToArrange} disabled={selectedContent.length === 0}>
                 Next
@@ -293,7 +282,7 @@ export function PlaylistCreator({
               <div className="p-2 space-y-2">
                 {playlistItems.map((item, index) => (
                   <div
-                    key={item.content.id}
+                    key={`${item.content.id}-${index}`}
                     className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50"
                   >
                     <div className="flex flex-col gap-1">
