@@ -375,16 +375,43 @@ export default function Display() {
     return () => clearTimeout(timer);
   }, [enterFullscreen]);
 
-  // Periodic soft refresh every hour — re-fetches data WITHOUT reloading the page
-  // This avoids re-downloading cached media files (saves egress)
+  // Hourly soft refresh — re-fetches data WITHOUT reloading (saves egress)
   useEffect(() => {
     const refreshInterval = setInterval(() => {
-      console.log('[Display] Hourly soft refresh — fetching data without page reload');
+      console.log('[Display] Hourly soft refresh');
       fetchData();
     }, 60 * 60 * 1000);
-
     return () => clearInterval(refreshInterval);
   }, [fetchData]);
+
+  // Fallback polling every 30s — catches playlist changes if Realtime is silent
+  useEffect(() => {
+    if (!screen?.id) return;
+    const screenId = screen.id;
+
+    const poll = async () => {
+      try {
+        const { playlist: activePlaylist, content: playlistContent } = await getActivePlaylistForScreen(screenId);
+        const playlistChanged = activePlaylist?.id !== currentPlaylistIdRef.current;
+        if (playlistChanged) {
+          console.log('[Display] Fallback poll detected playlist change');
+          if (activePlaylist) {
+            pendingPlaylistRef.current = { playlist: activePlaylist, content: playlistContent };
+            setNewPlaylistName(activePlaylist.name);
+            setIsPlaylistTransitioning(true);
+          } else {
+            setPlaylist(null);
+            setContent([]);
+          }
+        }
+      } catch (err) {
+        console.error('[Display] Fallback poll failed:', err);
+      }
+    };
+
+    const pollInterval = setInterval(poll, 30 * 1000);
+    return () => clearInterval(pollInterval);
+  }, [screen?.id]);
 
 
   // Handle Playlist Transition End
