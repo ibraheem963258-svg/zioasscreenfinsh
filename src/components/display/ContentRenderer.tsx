@@ -69,6 +69,14 @@ export function ContentRenderer({
   // Video element refs
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  // ── Watchdog refs ──
+  // Tracks last known currentTime to detect a "time stuck" stall
+  const lastCurrentTimeRef      = useRef<number>(-1);
+  // Counts consecutive stall detections to cap recovery attempts
+  const stallCountRef           = useRef<number>(0);
+  const WATCHDOG_INTERVAL_MS    = 5000;  // check every 5 s
+  const MAX_STALL_BEFORE_SKIP   = 3;     // after 3 failed recoveries → skip to next item
+
   // ---- Resolve only CURRENT video via IndexedDB cache ----
   // Only download ONE video at a time — prevents bandwidth competition
   useEffect(() => {
