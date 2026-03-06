@@ -72,24 +72,35 @@ export function ContentRenderer({
   );
 
   // IndexedDB blob URL cache — ref avoids re-renders that interrupt playback
-  const cachedUrlsRef          = useRef<Map<string, string>>(new Map());
-  const [cachedUrlsVersion, setCachedUrlsVersion] = useState(0);
+  const cachedUrlsRef = useRef<Map<string, string>>(new Map());
+
+  // ── resolvedSrcRef: the src COMMITTED to <video> at the start of each index.
+  // This is the ONLY value used in the render. It is set once per currentIndex
+  // change and NEVER updated by cache events — preventing mid-playback src swaps
+  // that cause the browser to cancel the in-flight request (the "canceled" bug).
+  const resolvedSrcRef = useRef<string>('');
+  const [resolvedSrc, setResolvedSrc] = useState<string>('');
 
   // Video element refs
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // ── Watchdog refs ──
   // Tracks last known currentTime to detect a "time stuck" stall
-  const lastCurrentTimeRef      = useRef<number>(-1);
+  const lastCurrentTimeRef   = useRef<number>(-1);
   // Counts consecutive stall detections to cap recovery attempts
-  const stallCountRef           = useRef<number>(0);
-  const WATCHDOG_INTERVAL_MS    = 5000;  // check every 5 s
-  const MAX_STALL_BEFORE_SKIP   = 3;     // after 3 failed recoveries → skip to next item
+  const stallCountRef        = useRef<number>(0);
+  const WATCHDOG_INTERVAL_MS = 5000;  // check every 5 s
+  const MAX_STALL_BEFORE_SKIP = 3;    // after 3 failed recoveries → skip to next item
 
-  // ---- Resolve only CURRENT video via IndexedDB cache ----
-  // Only download ONE video at a time — prevents bandwidth competition
+  // ---- Resolve src for CURRENT video when index changes ----
+  // Flow:
+  //   a) Immediately set src to the remote URL so playback starts instantly.
+  //   b) In the background, fetch/validate the blob from IndexedDB.
+  //   c) Store the blob URL in cachedUrlsRef for the NEXT time this item plays.
+  //   d) NEVER change resolvedSrc after playback has begun for this index.
+  //      This prevents the "canceled" network request bug entirely.
   useEffect(() => {
-    if (!isIndexedDBSupported()) return;
+    if (content.length === 0) return;
 
     const order      = displayOrder.length > 0 ? displayOrder : content.map((_, i) => i);
     const safeIndex  = ((currentIndex % order.length) + order.length) % order.length;
@@ -97,25 +108,32 @@ export function ContentRenderer({
     const current    = content[contentIdx];
 
     if (!current || current.type !== 'video') return;
-    if (cachedUrlsRef.current.has(current.url)) return; // already cached this session
 
-    // Pass updatedAt for version-based cache validation (no HEAD request needed)
+    // Use blob URL from this session's cache if already resolved (zero egress)
+    const cached = cachedUrlsRef.current.get(current.url);
+    if (cached) {
+      resolvedSrcRef.current = cached;
+      setResolvedSrc(cached);
+      console.log('[ContentRenderer] ✅ Playing from blob cache:', current.url.split('/').pop());
+      return;
+    }
+
+    // Start with remote URL immediately — don't wait for download
+    resolvedSrcRef.current = current.url;
+    setResolvedSrc(current.url);
+
+    // Background: cache the video for next playback cycle
+    if (!isIndexedDBSupported()) return;
     const updatedAt = current.uploadedAt?.toISOString();
-
     getVideoBlobUrl(current.url, updatedAt).then(blobUrl => {
       if (blobUrl !== current.url) {
+        // Store for NEXT time this item plays — do NOT interrupt current playback
         cachedUrlsRef.current.set(current.url, blobUrl);
-        setCachedUrlsVersion(v => v + 1);
+        console.log('[ContentRenderer] 🗄️ Blob cached for next cycle:', current.url.split('/').pop());
       }
     }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex, content, displayOrder]);
-
-  // Resolve URL: return blob URL if cached, otherwise remote (cleaned of cache-busters)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const resolveUrl = useCallback((url: string) => {
-    return cachedUrlsRef.current.get(url) ?? url;
-  }, [cachedUrlsVersion]);
 
   // ---- Initialize / re-initialize display order ----
   // When content array changes (soft refresh), try to preserve the currently-playing
