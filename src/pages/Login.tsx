@@ -148,19 +148,23 @@ export default function Login() {
               </div>
 
               <Button
-                type="submit"
-                className="w-full h-12 text-base font-medium"
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Signing in...
-                  </>
-                ) : (
-                  'Sign In'
-                )}
-              </Button>
+  type="submit"
+  className="w-full h-12 text-base font-medium"
+  disabled={isLoading}
+>
+  {isLoading ? (
+    <>
+      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+      Signing in...
+    </>
+  ) : (
+    'Sign In'
+  )}
+</Button>
+
+<p className="text-center text-xs text-muted-foreground mt-4">
+  © {new Date().getFullYear()} Zio ALS. All rights reserved.
+</p>
             </form>
           </div>
         </div>
