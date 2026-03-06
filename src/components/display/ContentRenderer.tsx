@@ -94,11 +94,13 @@ export function ContentRenderer({
 
   // ---- Resolve src for CURRENT video when index changes ----
   // Flow:
-  //   a) Immediately set src to the remote URL so playback starts instantly.
-  //   b) In the background, fetch/validate the blob from IndexedDB.
-  //   c) Store the blob URL in cachedUrlsRef for the NEXT time this item plays.
-  //   d) NEVER change resolvedSrc after playback has begun for this index.
-  //      This prevents the "canceled" network request bug entirely.
+  //   a) Check in-session Map first (instant, already a blob URL).
+  //   b) If NOT in session Map → ask IndexedDB immediately (survives page reload!).
+  //      While waiting, set remote URL so playback can start without blocking.
+  //   c) If IndexedDB returns a blob → use it immediately (overrides remote URL)
+  //      ONLY if the video hasn't already started playing from a different src.
+  //   d) Store blob in session Map so next cycle is instant.
+  //   NEVER swap src after the video has committed to playing (prevents "canceled" bug).
   useEffect(() => {
     if (content.length === 0) return;
 
@@ -109,29 +111,45 @@ export function ContentRenderer({
 
     if (!current || current.type !== 'video') return;
 
-    // Use blob URL from this session's cache if already resolved (zero egress)
-    const cached = cachedUrlsRef.current.get(current.url);
-    if (cached) {
-      resolvedSrcRef.current = cached;
-      setResolvedSrc(cached);
-      console.log('[ContentRenderer] ✅ Playing from blob cache:', current.url.split('/').pop());
+    let cancelled = false;
+
+    // 1. In-session Map hit → instant, zero egress, zero IndexedDB round-trip
+    const sessionCached = cachedUrlsRef.current.get(current.url);
+    if (sessionCached) {
+      resolvedSrcRef.current = sessionCached;
+      setResolvedSrc(sessionCached);
+      console.log('[ContentRenderer] ✅ Playing from session cache:', current.url.split('/').pop());
       return;
     }
 
-    // Start with remote URL immediately — don't wait for download
+    // 2. Set remote URL immediately so playback is never blocked
     resolvedSrcRef.current = current.url;
     setResolvedSrc(current.url);
 
-    // Background: cache the video for next playback cycle
     if (!isIndexedDBSupported()) return;
+
+    // 3. Query IndexedDB — this survives page refresh unlike the session Map
     const updatedAt = current.uploadedAt?.toISOString();
     getVideoBlobUrl(current.url, updatedAt).then(blobUrl => {
-      if (blobUrl !== current.url) {
-        // Store for NEXT time this item plays — do NOT interrupt current playback
-        cachedUrlsRef.current.set(current.url, blobUrl);
+      if (cancelled || blobUrl === current.url) return;
+
+      // Store in session Map for all future cycles
+      cachedUrlsRef.current.set(current.url, blobUrl);
+
+      // Apply immediately ONLY if no playback has started yet for this index
+      // (i.e. the video element src is still the remote URL — hasn't been committed)
+      const video = videoRef.current;
+      const isUnstarted = !video || video.currentTime === 0 || video.readyState === 0;
+      if (isUnstarted) {
+        resolvedSrcRef.current = blobUrl;
+        setResolvedSrc(blobUrl);
+        console.log('[ContentRenderer] ✅ Playing from IndexedDB (page-refresh hit):', current.url.split('/').pop());
+      } else {
         console.log('[ContentRenderer] 🗄️ Blob cached for next cycle:', current.url.split('/').pop());
       }
     }).catch(() => {});
+
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex, content, displayOrder]);
 
