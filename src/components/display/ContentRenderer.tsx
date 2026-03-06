@@ -386,7 +386,7 @@ export function ContentRenderer({
           <video
             key={currentContent.id}
             ref={videoRef}
-            src={resolveUrl(currentContent.url)}
+            src={resolvedSrc || currentContent.url}
             className={cn('w-full h-full', scalingClass)}
             autoPlay
             muted
