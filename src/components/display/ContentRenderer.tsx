@@ -1,6 +1,6 @@
 /**
  * ======================================
- * Content Renderer — Lag-Free Edition
+ * Content Renderer — Lag-Free + Watchdog Edition
  * ======================================
  *
  * Bug fixes preserved:
@@ -19,6 +19,13 @@
  *   7. Only the CURRENT video is resolved via IndexedDB; next video loads on-demand
  *      after the transition completes, preventing bandwidth race conditions
  *   8. In-flight deduplication in getVideoBlobUrl prevents concurrent duplicate downloads
+ *
+ * Video Watchdog (added for 20h+ runtime stability):
+ *   9. Checks every 5 seconds that currentTime is advancing
+ *  10. Detects stall/freeze: paused=false, ended=false, readyState<3 OR currentTime stuck
+ *  11. On stall: reloads src and restarts playback without triggering a playlist transition
+ *  12. Max 3 consecutive recovery attempts before advancing to next item (safety valve)
+ *  13. Compatible with Samsung Smart TV (Tizen) and Android TV browsers
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
