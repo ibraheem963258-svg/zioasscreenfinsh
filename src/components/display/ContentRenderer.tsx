@@ -26,6 +26,15 @@
  *  11. On stall: reloads src and restarts playback without triggering a playlist transition
  *  12. Max 3 consecutive recovery attempts before advancing to next item (safety valve)
  *  13. Compatible with Samsung Smart TV (Tizen) and Android TV browsers
+ *
+ * Critical bug fix (v4) — "video canceled mid-playback":
+ *  14. PROBLEM: When IndexedDB finishes caching a blob, setCachedUrlsVersion triggers a
+ *      re-render. resolveUrl then returns the NEW blob URL, changing <video src> while
+ *      the remote stream is active → browser cancels the in-flight request → readyState
+ *      drops → Watchdog detects stall → recovery loop begins.
+ *      FIX: resolvedSrcRef stores the src that was committed at the START of each index.
+ *      cachedUrlsVersion changes NEVER update the video src mid-playback — the blob URL
+ *      is only applied on the NEXT time this currentIndex is rendered (after a loop).
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
