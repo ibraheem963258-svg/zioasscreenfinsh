@@ -37,7 +37,7 @@
  *      is only applied on the NEXT time this currentIndex is rendered (after a loop).
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ContentItem, DisplaySettings } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { getVideoBlobUrl, isIndexedDBSupported } from '@/hooks/useVideoCache';
@@ -49,7 +49,7 @@ interface ContentRendererProps {
   onContentChange?: (index: number) => void;
 }
 
-export function ContentRenderer({
+ function ContentRenderer({
   content,
   settings,
   isPlaying,
@@ -89,7 +89,7 @@ export function ContentRenderer({
   const lastCurrentTimeRef   = useRef<number>(-1);
   // Counts consecutive stall detections to cap recovery attempts
   const stallCountRef        = useRef<number>(0);
-  const WATCHDOG_INTERVAL_MS = 5000;  // check every 5 s
+  const WATCHDOG_INTERVAL_MS = 10000;  // check every 10 s
   const MAX_STALL_BEFORE_SKIP = 3;    // after 3 failed recoveries → skip to next item
 
   // ---- Resolve src for CURRENT video when index changes ----
@@ -402,9 +402,9 @@ export function ContentRenderer({
           />
         ) : (
           <video
-            key={currentContent.id}
+            key={0}
             ref={videoRef}
-            src={resolvedSrc || currentContent.url}
+            src={resolvedSrc}
             className={cn('w-full h-full', scalingClass)}
             autoPlay
             muted
@@ -465,3 +465,4 @@ export function ContentRenderer({
     </div>
   );
 }
+export default React.memo(ContentRenderer);
