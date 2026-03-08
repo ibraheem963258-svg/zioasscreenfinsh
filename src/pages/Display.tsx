@@ -16,7 +16,7 @@ import { updateScreenStatus } from '@/lib/api';
 import { getActivePlaylistForScreen, getEffectiveDisplaySettings } from '@/lib/api/index';
 import { supabase } from '@/integrations/supabase/client';
 import { Screen, ContentItem, Playlist, DisplaySettings } from '@/lib/types';
-import ContentRenderer from '@/components/display/ContentRenderer';
+import { ContentRenderer } from '@/components/display/ContentRenderer';
 import { LoadingScreen } from '@/components/display/LoadingScreen';
 import { ErrorScreen } from '@/components/display/ErrorScreen';
 import { IdleScreen } from '@/components/display/IdleScreen';
