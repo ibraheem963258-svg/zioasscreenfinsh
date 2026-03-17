@@ -1,0 +1,1 @@
+ALTER TABLE public.screens ADD COLUMN IF NOT EXISTS force_refresh_at timestamp with time zone DEFAULT NULL;

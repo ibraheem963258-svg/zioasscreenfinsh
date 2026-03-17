@@ -1,0 +1,4 @@
+
+UPDATE storage.buckets
+SET file_size_limit = 314572800
+WHERE id = 'content';
